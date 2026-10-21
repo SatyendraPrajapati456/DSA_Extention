@@ -1,7 +1,8 @@
 /**
- * AI Service with Multi-Provider Abstraction
+ * AI Service with Multi-Provider Abstraction, Key Rotation & Model Failover
  * Supports Google Gemini, OpenAI, Groq, and Custom (OpenAI-compatible) endpoints.
- * Enforces structured output, schema validation, and language idiomatic requirements.
+ * Automatically rotates across multiple user API keys and fallback models if any
+ * model or key is busy (503), rate-limited (429), or unavailable (404/403).
  */
 
 import { AI_PROVIDERS } from '../constants/defaultSettings.js';
@@ -9,43 +10,434 @@ import { normalizeTopics } from '../constants/topics.js';
 
 export class AIService {
   /**
-   * Generates structured problem documentation
+   * Generates structured problem documentation with multi-key rotation and model fallback
    * @param {Object} options 
-   * @param {Object} options.settings - AI config settings
+   * @param {Object} options.settings - AI config settings { provider, apiKey, apiKeys, model, ... }
    * @param {Object} options.problem - Problem info { title, url, description, platform, originalLanguage, originalCode }
    * @param {string[]} [options.targetLanguages] - Array of language keys e.g. ['java', 'python', 'cpp', 'rust']
    * @returns {Promise<Object>} Validated structured documentation
    */
   static async generateDocumentation({ settings, problem, targetLanguages = ['java', 'python', 'cpp', 'rust'] }) {
-    const { provider, apiKey, model, customEndpoint, temperature = 0.2 } = settings;
+    const { provider, model, customEndpoint, temperature = 0.2 } = settings;
+    const apiKeys = this.extractApiKeys(settings);
 
-    if (!apiKey && provider !== AI_PROVIDERS.CUSTOM) {
-      throw new Error(`API Key for ${provider.toUpperCase()} is not configured. Please set it in AlgoSync Options.`);
+    if (apiKeys.length === 0 && provider !== AI_PROVIDERS.CUSTOM) {
+      throw new Error(`No API Key configured for ${provider.toUpperCase()}. Please configure at least one API key in AlgoSync Options.`);
     }
 
     const systemPrompt = this.buildSystemPrompt();
     const userPrompt = this.buildUserPrompt(problem, targetLanguages);
+    const candidateModels = this.getModelCandidates(provider, model);
 
-    let rawResponse = '';
-    switch (provider) {
-      case AI_PROVIDERS.GEMINI:
-        rawResponse = await this.callGemini({ apiKey, model, temperature, systemPrompt, userPrompt });
-        break;
-      case AI_PROVIDERS.OPENAI:
-        rawResponse = await this.callOpenAI({ apiKey, model, temperature, systemPrompt, userPrompt, endpoint: 'https://api.openai.com/v1' });
-        break;
-      case AI_PROVIDERS.GROQ:
-        rawResponse = await this.callOpenAI({ apiKey, model, temperature, systemPrompt, userPrompt, endpoint: 'https://api.groq.com/openai/v1' });
-        break;
-      case AI_PROVIDERS.CUSTOM:
-        rawResponse = await this.callOpenAI({ apiKey: apiKey || 'none', model, temperature, systemPrompt, userPrompt, endpoint: customEndpoint || 'http://localhost:11434/v1' });
-        break;
-      default:
-        throw new Error(`Unsupported AI Provider: ${provider}`);
+    let lastError = null;
+    let attemptsCount = 0;
+
+    // Outer Loop: Try configured model first, then fallback models if busy/error
+    for (const currentModel of candidateModels) {
+      // Inner Loop: Try each API key in the pool (automatic key rotation)
+      for (const currentKey of (apiKeys.length > 0 ? apiKeys : ['none'])) {
+        attemptsCount++;
+        const keyHint = currentKey.length > 6 ? `...${currentKey.slice(-4)}` : 'default';
+
+        try {
+          console.log(`[AlgoSync] AI Attempt #${attemptsCount}: Provider=${provider}, Model="${currentModel}", Key=${keyHint}`);
+
+          let rawResponse = '';
+          switch (provider) {
+            case AI_PROVIDERS.GEMINI:
+              rawResponse = await this.callSingleGemini({
+                apiKey: currentKey,
+                model: currentModel,
+                temperature,
+                systemPrompt,
+                userPrompt
+              });
+              break;
+
+            case AI_PROVIDERS.OPENAI:
+              rawResponse = await this.callSingleOpenAI({
+                apiKey: currentKey,
+                model: currentModel,
+                temperature,
+                systemPrompt,
+                userPrompt,
+                endpoint: 'https://api.openai.com/v1'
+              });
+              break;
+
+            case AI_PROVIDERS.GROQ:
+              rawResponse = await this.callSingleOpenAI({
+                apiKey: currentKey,
+                model: currentModel,
+                temperature,
+                systemPrompt,
+                userPrompt,
+                endpoint: 'https://api.groq.com/openai/v1'
+              });
+              break;
+
+            case AI_PROVIDERS.CUSTOM:
+              rawResponse = await this.callSingleOpenAI({
+                apiKey: currentKey || 'none',
+                model: currentModel,
+                temperature,
+                systemPrompt,
+                userPrompt,
+                endpoint: customEndpoint || 'http://localhost:11434/v1'
+              });
+              break;
+
+            default:
+              throw new Error(`Unsupported AI Provider: ${provider}`);
+          }
+
+          if (rawResponse && rawResponse.trim()) {
+            console.log(`[AlgoSync] AI generation succeeded using model "${currentModel}"!`);
+            const parsed = this.parseAndValidateResponse(rawResponse, problem, targetLanguages);
+            return parsed;
+          }
+
+        } catch (err) {
+          lastError = err;
+          console.warn(`[AlgoSync] Attempt failed with model "${currentModel}" and key ${keyHint}: ${err.message}`);
+          // If error is 503 (busy/high demand), 429 (rate-limited), 404 (model not found), or 403 (quota),
+          // continue loop to rotate key or failover to another model.
+          continue;
+        }
+      }
     }
 
-    const parsed = this.parseAndValidateResponse(rawResponse, problem, targetLanguages);
-    return parsed;
+    // If provider is Gemini and standard candidates failed, attempt dynamic discovery of active models
+    if (provider === AI_PROVIDERS.GEMINI && apiKeys.length > 0) {
+      for (const currentKey of apiKeys) {
+        const liveModels = await this.getLiveGeminiModels(currentKey);
+        for (const liveModel of liveModels) {
+          if (candidateModels.includes(liveModel)) continue;
+          try {
+            console.log(`[AlgoSync] Trying dynamically discovered Gemini model: "${liveModel}"`);
+            const rawResponse = await this.callSingleGemini({
+              apiKey: currentKey,
+              model: liveModel,
+              temperature,
+              systemPrompt,
+              userPrompt
+            });
+            if (rawResponse && rawResponse.trim()) {
+              console.log(`[AlgoSync] AI generation succeeded using dynamically discovered model "${liveModel}"!`);
+              return this.parseAndValidateResponse(rawResponse, problem, targetLanguages);
+            }
+          } catch (e) {
+            lastError = e;
+          }
+        }
+      }
+    }
+
+    throw lastError || new Error(`AI generation failed after testing ${candidateModels.length} models and ${apiKeys.length} API keys.`);
+  }
+
+  /**
+   * Extracts and deduplicates all API keys provided in settings (array or comma/newline-separated string)
+   * @param {Object} settings 
+   * @returns {string[]} Sanitized list of non-empty API keys
+   */
+  static extractApiKeys(settings) {
+    const keys = [];
+
+    // Check array in settings.apiKeys
+    if (Array.isArray(settings.apiKeys)) {
+      for (const k of settings.apiKeys) {
+        if (typeof k === 'string' && k.trim()) {
+          const clean = k.trim();
+          if (!keys.includes(clean)) keys.push(clean);
+        }
+      }
+    }
+
+    // Check string in settings.apiKey (can be single key or comma/newline-separated)
+    if (typeof settings.apiKey === 'string' && settings.apiKey.trim()) {
+      const parts = settings.apiKey.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+      for (const p of parts) {
+        if (!keys.includes(p)) keys.push(p);
+      }
+    }
+
+    return keys;
+  }
+
+  /**
+   * Returns ordered list of models to try (user-selected first, followed by stable fallbacks)
+   */
+  static getModelCandidates(provider, selectedModel) {
+    let list = [];
+
+    if (provider === AI_PROVIDERS.GEMINI) {
+      const primary = selectedModel || 'gemini-3.8-flash';
+      list = [
+        primary,
+        'gemini-3.8-flash',
+        'gemini-3.8-pro',
+        'gemini-3.5-flash',
+        'gemini-3.0-flash',
+        'gemini-2.5-flash',
+        'gemini-2.5-pro'
+      ];
+    } else if (provider === AI_PROVIDERS.OPENAI) {
+      const primary = selectedModel || 'gpt-4o-mini';
+      list = [primary, 'gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'];
+    } else if (provider === AI_PROVIDERS.GROQ) {
+      const primary = selectedModel || 'llama-3.3-70b-versatile';
+      list = [primary, 'llama-3.3-70b-versatile', 'llama-3.1-8b-instant', 'mixtral-8x7b-32768'];
+    } else {
+      list = [selectedModel || 'custom-model'];
+    }
+
+    // Deduplicate, filter out falsy values and deprecated 2.0/1.x models
+    return Array.from(new Set(list.filter(m => Boolean(m) && !m.includes('2.0') && !m.startsWith('gemini-1.'))));
+  }
+
+  /**
+   * Queries Google API to discover active live Gemini models supporting generateContent
+   * (filtering out shut down 2.0 and 1.x models)
+   */
+  static async getLiveGeminiModels(apiKey) {
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data.models)) return [];
+      return data.models
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''))
+        .filter(m => !m.includes('2.0') && !m.startsWith('gemini-1.'));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Calls Google Gemini API for a single request
+   */
+  static async callSingleGemini({ apiKey, model, temperature, systemPrompt, userPrompt }) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const requestBody = {
+      systemInstruction: {
+        parts: [{ text: systemPrompt }]
+      },
+      contents: [
+        {
+          role: 'user',
+          parts: [{ text: userPrompt }]
+        }
+      ],
+      generationConfig: {
+        temperature: temperature || 0.2,
+        responseMimeType: 'application/json'
+      }
+    };
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData.error?.message || response.statusText;
+      throw new Error(`Gemini API Error (${response.status}): ${errMsg}`);
+    }
+
+    const data = await response.json();
+    const candidate = data.candidates?.[0];
+    const text = candidate?.content?.parts?.[0]?.text;
+
+    if (!text) {
+      throw new Error('Gemini API returned an empty response.');
+    }
+
+    return text;
+  }
+
+  /**
+   * Calls OpenAI / Groq / OpenAI-compatible endpoint for a single request
+   */
+  static async callSingleOpenAI({ apiKey, model, temperature, systemPrompt, userPrompt, endpoint }) {
+    const baseEndpoint = endpoint.replace(/\/+$/, '');
+    const url = `${baseEndpoint}/chat/completions`;
+
+    const requestBody = {
+      model: model || 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: temperature || 0.2,
+      response_format: { type: 'json_object' }
+    };
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiKey && apiKey !== 'none') {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      const errMsg = errData.error?.message || response.statusText;
+      throw new Error(`AI Provider API Error (${response.status}): ${errMsg}`);
+    }
+
+    const data = await response.json();
+    const text = data.choices?.[0]?.message?.content;
+
+    if (!text) {
+      throw new Error('AI Provider returned an empty response.');
+    }
+
+    return text;
+  }
+
+  /**
+   * Generates resilient fallback documentation preserving the user's accepted submission
+   * when all AI keys or models are busy/exhausted, guaranteeing zero data loss.
+   */
+  static generateFallbackDocumentation(problem, targetLanguages = ['java', 'python', 'cpp', 'rust'], failureReason = '') {
+    const origLang = (problem.originalLanguage || 'Java');
+    const origLangLower = origLang.toLowerCase();
+    const preservedCode = problem.originalCode || `// Original code preserved from ${problem.platform}`;
+
+    const languagesObj = {};
+    for (const tl of targetLanguages) {
+      const isUserSubmittedLang =
+        tl.toLowerCase() === origLangLower ||
+        (origLangLower.includes('java') && tl === 'java') ||
+        (origLangLower.includes('python') && tl === 'python') ||
+        (origLangLower.includes('cpp') && tl === 'cpp') ||
+        (origLangLower.includes('rust') && tl === 'rust');
+
+      if (isUserSubmittedLang) {
+        languagesObj[tl] = {
+          whatIsRequired: [
+            `1. Accepted ${origLang} implementation logic.`,
+            `2. Platform I/O specifications for ${problem.platform}.`,
+            '3. Verified algorithm passing all test cases.'
+          ],
+          importantConcepts: ['Algorithms', 'Data Structures', 'Optimal Complexity'],
+          code: preservedCode
+        };
+      } else {
+        languagesObj[tl] = {
+          whatIsRequired: [
+            `1. Idiomatic ${tl.toUpperCase()} solution for ${problem.title || 'challenge'}.`,
+            '2. Can be re-generated with AI documentation via AlgoSync Dashboard -> History -> Retry when AI capacity is available.'
+          ],
+          importantConcepts: [`${tl.toUpperCase()} Syntax`, 'Standard Library', 'Optimal Complexity'],
+          code: this.generateLanguageScaffold(tl, problem, origLang)
+        };
+      }
+    }
+
+    return {
+      topics: ['Algorithms'],
+      approach: {
+        algorithm: 'Optimal Accepted Solution',
+        idea: `Accepted solution verified and submitted on ${problem.platform}.`,
+        steps: [
+          `Analyze problem statement and edge cases on ${problem.platform}.`,
+          `Implement optimal algorithmic solution in ${origLang}.`,
+          `Submit and successfully pass all test cases.`
+        ],
+        whyItWorks: `Algorithm adheres to all problem constraints and successfully passes all verified test cases on ${problem.platform}.`,
+        timeComplexity: 'Optimal for constraints.',
+        auxiliarySpaceComplexity: 'Optimal for constraints.'
+      },
+      testCases: [
+        {
+          name: 'Platform Verified Test Suite',
+          input: 'Refer to problem description',
+          expectedOutput: 'Accepted verdict',
+          explanation: `Passed all test cases on ${problem.platform}.`
+        }
+      ],
+      languages: languagesObj,
+      motivation: 'Every problem you solve strengthens your problem-solving foundation.'
+    };
+  }
+
+  /**
+   * Generates a clean, idiomatic code scaffold for fallback languages
+   */
+  static generateLanguageScaffold(langKey, problem, origLang) {
+    const title = problem.title || 'Problem Solution';
+    switch (langKey) {
+      case 'python':
+        return `# PYTHON solution can be generated via AlgoSync History -> Retry once AI capacity is available.
+# Original accepted ${origLang} solution is preserved in this document.
+
+def solve():
+    """
+    Platform: ${problem.platform}
+    Challenge: ${title}
+    """
+    pass
+
+if __name__ == '__main__':
+    solve()
+`;
+
+      case 'cpp':
+        return `// C++ solution can be generated via AlgoSync History -> Retry once AI capacity is available.
+// Original accepted ${origLang} solution is preserved in this document.
+
+#include <iostream>
+#include <vector>
+#include <string>
+#include <algorithm>
+
+using namespace std;
+
+int main() {
+    // Platform: ${problem.platform}
+    // Challenge: ${title}
+    return 0;
+}
+`;
+
+      case 'java':
+        return `// JAVA solution can be generated via AlgoSync History -> Retry once AI capacity is available.
+// Original accepted ${origLang} solution is preserved in this document.
+
+import java.io.*;
+import java.util.*;
+
+public class Solution {
+    public static void main(String[] args) {
+        // Platform: ${problem.platform}
+        // Challenge: ${title}
+    }
+}
+`;
+
+      case 'rust':
+        return `// RUST solution can be generated via AlgoSync History -> Retry once AI capacity is available.
+// Original accepted ${origLang} solution is preserved in this document.
+
+fn main() {
+    // Platform: ${problem.platform}
+    // Challenge: ${title}
+}
+`;
+
+      default:
+        return `// ${langKey.toUpperCase()} solution can be generated via AlgoSync History -> Retry once AI capacity is available.\n// Your original accepted submission in ${origLang} is preserved in this document.`;
+    }
   }
 
   /**
@@ -164,130 +556,9 @@ Return a single JSON object with EXACTLY this structure:
   }
 
   /**
-   * Calls Google Gemini API with automatic retry and fallback on 503/429 errors
-   */
-  static async callGemini({ apiKey, model, temperature, systemPrompt, userPrompt }) {
-    const primaryModel = model || 'gemini-2.5-flash';
-    // Fallback list to survive high-demand temporary outages (503 / 429)
-    const modelsToTry = [primaryModel];
-    if (primaryModel !== 'gemini-2.5-flash') modelsToTry.push('gemini-2.5-flash');
-    if (primaryModel !== 'gemini-1.5-flash') modelsToTry.push('gemini-1.5-flash');
-
-    let lastError = null;
-
-    for (const currentModel of modelsToTry) {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
-
-      const requestBody = {
-        systemInstruction: {
-          parts: [{ text: systemPrompt }]
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userPrompt }]
-          }
-        ],
-        generationConfig: {
-          temperature: temperature || 0.2,
-          responseMimeType: 'application/json'
-        }
-      };
-
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const response = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
-          });
-
-          if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            const errMsg = errData.error?.message || response.statusText;
-
-            // If 503 (high demand) or 429 (rate limit), pause and retry
-            if ((response.status === 503 || response.status === 429) && attempt === 1) {
-              console.warn(`[AlgoSync] Gemini (${currentModel}) returned ${response.status}. Retrying in 1.5s...`);
-              await new Promise(r => setTimeout(r, 1500));
-              continue;
-            }
-
-            throw new Error(`Gemini API Error (${response.status}): ${errMsg}`);
-          }
-
-          const data = await response.json();
-          const candidate = data.candidates?.[0];
-          const text = candidate?.content?.parts?.[0]?.text;
-
-          if (!text) {
-            throw new Error('Gemini API returned an empty response.');
-          }
-
-          return text;
-
-        } catch (err) {
-          lastError = err;
-          // If error is 503 / 429 and attempt 1, try again
-          if (attempt === 1 && (err.message.includes('503') || err.message.includes('429'))) {
-            await new Promise(r => setTimeout(r, 1500));
-            continue;
-          }
-          // Otherwise try next model in fallback list
-          break;
-        }
-      }
-    }
-
-    throw lastError || new Error('Gemini API call failed after retries.');
-  }
-
-  /**
-   * Calls OpenAI / Groq / OpenAI-compatible API
-   */
-  static async callOpenAI({ apiKey, model, temperature, systemPrompt, userPrompt, endpoint }) {
-    const baseEndpoint = endpoint.replace(/\/+$/, '');
-    const url = `${baseEndpoint}/chat/completions`;
-
-    const requestBody = {
-      model: model || 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt }
-      ],
-      temperature: temperature || 0.2,
-      response_format: { type: 'json_object' }
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(`AI Provider API Error (${response.status}): ${errData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content;
-
-    if (!text) {
-      throw new Error('AI Provider returned an empty response.');
-    }
-
-    return text;
-  }
-
-  /**
    * Parses and validates the raw JSON response against schema requirements
    */
   static parseAndValidateResponse(rawText, problem, targetLanguages) {
-    // Clean potential markdown fencing ```json ... ```
     let cleaned = rawText.trim();
     if (cleaned.startsWith('```')) {
       cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
@@ -297,7 +568,6 @@ Return a single JSON object with EXACTLY this structure:
     try {
       parsed = JSON.parse(cleaned);
     } catch (e) {
-      // Attempt regex extraction of first {...} block
       const match = cleaned.match(/\{[\s\S]*\}/);
       if (match) {
         try {
@@ -310,7 +580,7 @@ Return a single JSON object with EXACTLY this structure:
       }
     }
 
-    // Validate core fields
+    // Validate core approach fields
     if (!parsed.approach || typeof parsed.approach !== 'object') {
       parsed.approach = {
         algorithm: 'Optimal Algorithm',

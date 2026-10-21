@@ -656,14 +656,17 @@
               </div>
 
               <div class="form-group">
-                <label for="ai-api-key">API Key</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                  <label for="ai-api-key" style="margin-bottom: 0;">API Keys (Multiple Keys & Automatic Failover Supported)</label>
+                  <span id="ai-key-count-badge" class="badge-status connected hidden" style="font-size: 11px; padding: 2px 8px;">1 Key Loaded</span>
+                </div>
                 <div class="input-with-button">
-                  <input type="password" id="ai-api-key" placeholder="Enter your provider API key">
-                  <button type="button" id="btn-toggle-ai-key" class="btn btn-sm btn-secondary">Show</button>
-                  <button type="button" id="btn-test-ai" class="btn btn-sm btn-primary">Test AI Connection</button>
+                  <textarea id="ai-api-key" rows="2" style="font-family: monospace; font-size: 13px; resize: vertical; -webkit-text-security: disc;" placeholder="Enter one or multiple API keys (separated by commas or new lines) for automatic rotation & failover"></textarea>
+                  <button type="button" id="btn-toggle-ai-key" class="btn btn-sm btn-secondary" style="height: auto; align-self: stretch;">Show</button>
+                  <button type="button" id="btn-test-ai" class="btn btn-sm btn-primary" style="height: auto; align-self: stretch;">Test AI Connection</button>
                 </div>
                 <span class="help-text" id="ai-key-hint">
-                  Get a free Gemini API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link">Google AI Studio</a>. Keys are stored locally on your device.
+                  Get a free Gemini API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link">Google AI Studio</a>. You can add multiple keys separated by commas or new lines; AlgoSync automatically rotates if a key is busy or rate-limited.
                 </span>
               </div>
 
@@ -873,6 +876,12 @@
                 <p>Complete record of all detected, generated, and uploaded problem documents.</p>
               </div>
               <div class="header-btn-row">
+                <button type="button" id="btn-refresh-history" class="btn btn-sm btn-secondary" title="Refresh synchronization history without reloading page">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
+                    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                  </svg>
+                  Refresh
+                </button>
                 <button id="btn-export-history" class="btn btn-sm btn-secondary">Export JSON</button>
                 <button id="btn-clear-history" class="btn btn-sm btn-danger">Clear History</button>
               </div>

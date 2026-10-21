@@ -13,15 +13,17 @@
   let lastProcessedSlug = '';
   let pollingInterval = null;
   let pollingAttempts = 0;
+  let userSubmittedAt = 0;
 
-  // Initial setup
+  // Initial setup - only attach listeners, DO NOT check verdict on page load
   attachSubmitButtonListeners();
-  checkHackerRankVerdict();
 
   // Dual-layer observation: MutationObserver watches dynamic DOM changes
   const observer = new MutationObserver(() => {
-    checkHackerRankVerdict();
     attachSubmitButtonListeners();
+    if (userSubmittedAt && (Date.now() - userSubmittedAt <= 60000)) {
+      checkHackerRankVerdict();
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
@@ -30,6 +32,7 @@
   document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
       console.log('[AlgoSync] HackerRank submit hotkey detected, initiating active polling...');
+      userSubmittedAt = Date.now();
       startPollingForVerdict();
     }
   });
@@ -56,6 +59,7 @@
         btn.__algosync_attached = true;
         btn.addEventListener('click', () => {
           console.log('[AlgoSync] HackerRank Submit button clicked, initiating active polling...');
+          userSubmittedAt = Date.now();
           startPollingForVerdict();
         });
       }
@@ -85,6 +89,12 @@
    * Returns true if an accepted submission was detected and processed.
    */
   function checkHackerRankVerdict() {
+    // Strictly require active user submission within the last 60 seconds
+    const now = Date.now();
+    if (!userSubmittedAt || (now - userSubmittedAt > 60000)) {
+      return false;
+    }
+
     // Strategy 1: Check explicit success headers, banners, and modals
     const candidateSelectors = [
       '.congratulations-heading',
@@ -183,6 +193,12 @@
 
     lastProcessedTime = now;
     lastProcessedSlug = slug;
+    userSubmittedAt = 0; // Consume submission intent so it cannot fire again
+
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
 
     console.log('[AlgoSync] Verified HackerRank Accepted Submission Detected! Extracting data for:', title);
 

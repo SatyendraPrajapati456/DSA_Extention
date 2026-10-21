@@ -26,6 +26,23 @@ export class SyncOrchestrator {
       return { success: false, reason: 'DUPLICATE' };
     }
 
+    // Historical sync check: skip if identical problem & accepted code has already been successfully synced
+    const history = await StorageManager.getHistory();
+    const cleanCurrentCode = (submission.originalCode || '').trim();
+    const alreadySynced = history.some(item => {
+      if (item.status !== 'SUCCESS') return false;
+      if (item.platform !== submission.platform) return false;
+      const titleMatches = item.problemTitle && submission.title &&
+        item.problemTitle.toLowerCase().trim() === submission.title.toLowerCase().trim();
+      const rawCode = (item.rawSubmission?.originalCode || '').trim();
+      return titleMatches && rawCode && cleanCurrentCode && rawCode === cleanCurrentCode;
+    });
+
+    if (alreadySynced) {
+      console.log(`[AlgoSync] Problem "${submission.title}" with identical code was already synced successfully in history. Skipping.`);
+      return { success: false, reason: 'ALREADY_SYNCED' };
+    }
+
     const settings = await StorageManager.getSettings();
 
     // Check if platform is enabled
@@ -67,7 +84,8 @@ export class SyncOrchestrator {
         throw new Error('GitHub account or repository not configured. Please complete setup in AlgoSync Options.');
       }
 
-      if (!settings.ai.apiKey && settings.ai.provider !== 'custom') {
+      const apiKeys = AIService.extractApiKeys(settings.ai);
+      if (apiKeys.length === 0 && settings.ai.provider !== 'custom') {
         throw new Error(`AI Provider (${settings.ai.provider.toUpperCase()}) API key is missing. Configure it in AlgoSync Options.`);
       }
 
@@ -78,11 +96,19 @@ export class SyncOrchestrator {
         ? settings.ai.languages 
         : ['java', 'python', 'cpp', 'rust'];
 
-      const aiResult = await AIService.generateDocumentation({
-        settings: settings.ai,
-        problem: submission,
-        targetLanguages
-      });
+      let aiResult;
+      let usedFallback = false;
+      try {
+        aiResult = await AIService.generateDocumentation({
+          settings: settings.ai,
+          problem: submission,
+          targetLanguages
+        });
+      } catch (aiErr) {
+        console.warn('[AlgoSync] All AI keys and models were busy or unavailable. Generating safe preserved documentation:', aiErr);
+        aiResult = AIService.generateFallbackDocumentation(submission, targetLanguages, aiErr.message);
+        usedFallback = true;
+      }
 
       // Step 3: Template Rendering (Markdown or Plain Text)
       const fileFormat = settings.github.fileFormat || 'md';
@@ -135,9 +161,16 @@ export class SyncOrchestrator {
 
       // Step 7: Notify User
       if (settings.syncPreferences.showNotifications) {
+        const notifTitle = usedFallback
+          ? 'AlgoSync: Solution Synced! 🚀 (Preserved)'
+          : 'AlgoSync: Solution Synced! 🚀';
+        const notifMsg = usedFallback
+          ? `Accepted submission saved to GitHub!\nOriginal ${submission.originalLanguage || 'code'} preserved.\nUploaded to: ${filePath}\n(AI models were busy)`
+          : `Accepted submission detected!\nAI documentation generated.\nUploaded to: ${filePath}`;
+
         this.sendNotification({
-          title: 'AlgoSync: Solution Synced! 🚀',
-          message: `Accepted submission detected!\nAI documentation generated.\nUploaded to: ${filePath}`
+          title: notifTitle,
+          message: notifMsg
         });
       }
 

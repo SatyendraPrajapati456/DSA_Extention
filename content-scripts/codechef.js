@@ -9,14 +9,47 @@
   window.AlgoSyncCommon.initHUD('CodeChef');
 
   let lastProcessed = 0;
+  let userSubmittedAt = 0;
+
+  attachSubmitListeners();
 
   const observer = new MutationObserver(() => {
-    checkCodeChefVerdict();
+    attachSubmitListeners();
+    if (userSubmittedAt && (Date.now() - userSubmittedAt <= 60000)) {
+      checkCodeChefVerdict();
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
 
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      console.log('[AlgoSync] CodeChef submit hotkey detected');
+      userSubmittedAt = Date.now();
+    }
+  });
+
+  function attachSubmitListeners() {
+    const buttons = document.querySelectorAll('button, input[type="submit"]');
+    for (const btn of buttons) {
+      if (btn.__algosync_attached) continue;
+      const text = (btn.value || btn.innerText || btn.textContent || '').trim();
+      if (text.toLowerCase().includes('submit')) {
+        btn.__algosync_attached = true;
+        btn.addEventListener('click', () => {
+          console.log('[AlgoSync] CodeChef submit clicked');
+          userSubmittedAt = Date.now();
+        });
+      }
+    }
+  }
+
   function checkCodeChefVerdict() {
+    const now = Date.now();
+    if (!userSubmittedAt || (now - userSubmittedAt > 60000)) {
+      return;
+    }
+
     const verdictElements = document.querySelectorAll(
       'span.status-label, div.submission-status, .verdict-label, div[class*="correctAnswer"], h3'
     );
@@ -31,6 +64,7 @@
   }
 
   function handleAccepted() {
+    userSubmittedAt = 0;
     if (Date.now() - lastProcessed < 20000) return;
     lastProcessed = Date.now();
 

@@ -12,9 +12,11 @@ export const AI_PROVIDERS = {
 export const AI_MODELS = {
   [AI_PROVIDERS.GEMINI]: [
     { id: 'gemini-3.8-flash', name: 'Gemini 3.8 Flash (Latest & Recommended)' },
-    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
-    { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash' },
-    { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (In-depth analysis)' }
+    { id: 'gemini-3.8-pro', name: 'Gemini 3.8 Pro (Deep Reasoning & Complex DSA)' },
+    { id: 'gemini-3.5-flash', name: 'Gemini 3.5 Flash (High Speed)' },
+    { id: 'gemini-3.0-flash', name: 'Gemini 3.0 Flash' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash (Fast & Accurate)' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro (Deep Reasoning)' }
   ],
   [AI_PROVIDERS.OPENAI]: [
     { id: 'gpt-4o-mini', name: 'GPT-4o Mini (Fast & Cost Effective)' },
@@ -140,6 +142,7 @@ export const DEFAULT_SETTINGS = {
   ai: {
     provider: AI_PROVIDERS.GEMINI,
     apiKey: '',
+    apiKeys: [],
     model: 'gemini-3.8-flash',
     customEndpoint: 'http://localhost:11434/v1',
     temperature: 0.2,

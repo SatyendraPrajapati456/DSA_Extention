@@ -18,6 +18,7 @@ import { DEFAULT_SETTINGS, getDefaultPlatformPaths, AI_PROVIDERS } from './src/c
 import { TemplateRenderer } from './src/renderer/templateRenderer.js';
 import { SyncOrchestrator } from './src/orchestrator/syncOrchestrator.js';
 import { GitHubClient } from './src/github/githubClient.js';
+import { AIService } from './src/ai/aiService.js';
 
 console.log('--- RUNNING COMPREHENSIVE ALGOSYNC TEST SUITE ---');
 
@@ -286,6 +287,88 @@ long aVeryBigSum(vector<long> ar) {
 assert(detectLang(javaSample) === 'Java', 'Detects HackerRank Java solution as "Java"');
 assert(detectLang(pythonSample) === 'Python', 'Detects Python solution as "Python"');
 assert(detectLang(cppSample) === 'C++', 'Detects C++ solution as "C++"');
+
+// 10. Test Multi-Key Extraction & Model Failover
+console.log('\n[10] Testing Multi-Key Extraction & Model Failover...');
+
+// 10.1 Multi-Key extraction from comma/newline strings
+const multiKeysConfig = {
+  apiKey: 'AIzaSyKey1, AIzaSyKey2\nAIzaSyKey3; AIzaSyKey4',
+  apiKeys: ['AIzaSyKey1', 'AIzaSyKey5']
+};
+const extractedKeys = AIService.extractApiKeys(multiKeysConfig);
+assert(extractedKeys.length === 5, `Extracted and deduplicated 5 distinct keys (got: ${extractedKeys.length})`);
+assert(extractedKeys.includes('AIzaSyKey1') && extractedKeys.includes('AIzaSyKey5'), 'Includes keys from both apiKey string and apiKeys array');
+
+// 10.2 Model Candidates fallback list (User preference first, followed by resilient models)
+const geminiCandidates = AIService.getModelCandidates('gemini', 'gemini-3.8-flash');
+assert(geminiCandidates[0] === 'gemini-3.8-flash', 'User selected model is attempted first');
+assert(geminiCandidates.includes('gemini-3.8-flash'), 'Fallback list includes latest gemini-3.8-flash');
+assert(geminiCandidates.includes('gemini-3.8-pro'), 'Fallback list includes latest gemini-3.8-pro');
+assert(geminiCandidates.includes('gemini-2.5-flash'), 'Fallback list includes active working model gemini-2.5-flash');
+assert(geminiCandidates.includes('gemini-2.5-pro'), 'Fallback list includes active working model gemini-2.5-pro');
+assert(!geminiCandidates.some(m => m.includes('2.0') || m.startsWith('gemini-1.')), 'Strictly excludes shut down 2.0 and 1.x models');
+
+// 10.3 Fallback documentation generation when all AI is busy
+const testProblem = {
+  title: 'A. Min Max Game',
+  platform: 'Codeforces',
+  url: 'https://codeforces.com/problemset/problem/1234/A',
+  originalLanguage: 'Java',
+  originalCode: 'public class Solution { public static void main(String[] args) {} }',
+  description: 'You are given an array of integers.'
+};
+const fallbackDoc = AIService.generateFallbackDocumentation(testProblem, ['java', 'python', 'cpp', 'rust'], '503 busy');
+assert(fallbackDoc.approach && fallbackDoc.approach.algorithm, 'Fallback documentation generates valid approach');
+assert(fallbackDoc.languages.java.code === testProblem.originalCode, 'Fallback documentation preserves 100% of user Java code');
+assert(fallbackDoc.languages.python.code.includes('AlgoSync History -> Retry'), 'Fallback documentation provides clean instruction for other languages');
+assert(fallbackDoc.languages.python.code.includes('def solve():'), 'Fallback documentation provides Python code structure');
+assert(fallbackDoc.languages.cpp.code.includes('int main()'), 'Fallback documentation provides C++ code structure');
+assert(fallbackDoc.languages.rust.code.includes('fn main()'), 'Fallback documentation provides Rust code structure');
+
+const fallbackRendered = TemplateRenderer.render({
+  problem: testProblem,
+  aiAnalysis: fallbackDoc.approach,
+  testCases: fallbackDoc.testCases,
+  languages: fallbackDoc.languages,
+  motivation: fallbackDoc.motivation
+}, 'md');
+
+assert(fallbackRendered.includes('# A. Min Max Game'), 'Fallback Markdown renders problem title');
+assert(fallbackRendered.includes('public class Solution'), 'Fallback Markdown renders original Java code');
+
+// 11. Test Active Submission Intent in Content Scripts
+console.log('\n[11] Testing Active Submission Intent in Content Scripts...');
+const hrScript = fs.readFileSync('content-scripts/hackerrank.js', 'utf8');
+const lcScript = fs.readFileSync('content-scripts/leetcode.js', 'utf8');
+const gfgScript = fs.readFileSync('content-scripts/geeksforgeeks.js', 'utf8');
+const cfScript = fs.readFileSync('content-scripts/codeforces.js', 'utf8');
+const ccScript = fs.readFileSync('content-scripts/codechef.js', 'utf8');
+const heScript = fs.readFileSync('content-scripts/hackerearth.js', 'utf8');
+
+assert(!hrScript.includes('checkHackerRankVerdict();\n\n  // Dual-layer'), 'HackerRank does not call checkHackerRankVerdict on page load');
+assert(hrScript.includes('if (!userSubmittedAt || (now - userSubmittedAt > 60000))'), 'HackerRank strictly guards verdict checks with userSubmittedAt');
+assert(lcScript.includes('if (!userSubmittedAt || (now - userSubmittedAt > 60000))'), 'LeetCode strictly guards verdict checks with userSubmittedAt');
+assert(gfgScript.includes('if (!userSubmittedAt || (now - userSubmittedAt > 60000))'), 'GeeksforGeeks strictly guards verdict checks with userSubmittedAt');
+assert(cfScript.includes('if (!userSubmittedAt || (now - userSubmittedAt > 60000))'), 'Codeforces strictly guards verdict checks with userSubmittedAt');
+assert(ccScript.includes('if (!userSubmittedAt || (now - userSubmittedAt > 60000))'), 'CodeChef strictly guards verdict checks with userSubmittedAt');
+assert(heScript.includes('if (!userSubmittedAt || (now - userSubmittedAt > 60000))'), 'HackerEarth strictly guards verdict checks with userSubmittedAt');
+
+// 12. Test SyncOrchestrator Historical Duplicate Suppression
+console.log('\n[12] Testing Historical Duplicate Suppression...');
+const orchestratorCode = fs.readFileSync('src/orchestrator/syncOrchestrator.js', 'utf8');
+assert(orchestratorCode.includes('ALREADY_SYNCED'), 'SyncOrchestrator handles ALREADY_SYNCED status');
+assert(orchestratorCode.includes('alreadySynced'), 'SyncOrchestrator checks history for identical submissions');
+
+// 13. Test History Refresh Button
+console.log('\n[13] Testing History Refresh Button...');
+const optionsHtml = fs.readFileSync('options/options.html', 'utf8');
+const optionsJs = fs.readFileSync('options/options.js', 'utf8');
+assert(optionsHtml.includes('id="btn-refresh-history"'), 'options.html includes btn-refresh-history button');
+assert(optionsHtml.includes('id="btn-export-history"'), 'options.html includes btn-export-history button');
+assert(optionsJs.includes('btnRefreshHistory?.addEventListener'), 'options.js attaches refresh click listener');
+assert(optionsJs.includes('await loadHistory()'), 'options.js reloads history data asynchronously');
+assert(!optionsJs.includes('btnRefreshHistory?.addEventListener(\'click\', () => location.reload()'), 'options.js does not reload the entire page');
 
 console.log(`\n========================================`);
 console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);

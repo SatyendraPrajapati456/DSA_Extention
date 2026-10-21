@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const aiProvider = document.getElementById('ai-provider');
   const aiModel = document.getElementById('ai-model');
   const aiApiKey = document.getElementById('ai-api-key');
+  const aiKeyCountBadge = document.getElementById('ai-key-count-badge');
   const btnToggleAiKey = document.getElementById('btn-toggle-ai-key');
   const btnTestAi = document.getElementById('btn-test-ai');
   const customEndpointGroup = document.getElementById('custom-endpoint-group');
@@ -169,6 +170,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const historyFilterPlatform = document.getElementById('history-filter-platform');
   const historyFilterStatus = document.getElementById('history-filter-status');
   const historyTableBody = document.getElementById('history-table-body');
+  const btnRefreshHistory = document.getElementById('btn-refresh-history');
   const btnExportHistory = document.getElementById('btn-export-history');
   const btnClearHistory = document.getElementById('btn-clear-history');
 
@@ -287,8 +289,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Populate AI fields
     aiProvider.value = currentSettings.ai.provider || AI_PROVIDERS.GEMINI;
     updateAiModelOptions(aiProvider.value);
-    aiModel.value = currentSettings.ai.model || 'gemini-3.8-flash';
-    aiApiKey.value = currentSettings.ai.apiKey || '';
+    let selectedModel = currentSettings.ai.model || 'gemini-3.8-flash';
+    if (selectedModel.startsWith('gemini-1.') || selectedModel.startsWith('gemini-2.')) {
+      selectedModel = 'gemini-3.8-flash';
+    }
+    aiModel.value = selectedModel;
+
+    const existingKeys = Array.isArray(currentSettings.ai.apiKeys) && currentSettings.ai.apiKeys.length > 0
+      ? currentSettings.ai.apiKeys
+      : (currentSettings.ai.apiKey ? [currentSettings.ai.apiKey] : []);
+    aiApiKey.value = existingKeys.join('\n');
+    updateAiKeyBadge();
+
     aiCustomEndpoint.value = currentSettings.ai.customEndpoint || 'http://localhost:11434/v1';
     aiTemperature.value = currentSettings.ai.temperature ?? 0.2;
     tempVal.textContent = aiTemperature.value;
@@ -635,10 +647,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnTogglePat.textContent = isPass ? 'Hide' : 'Show';
   });
 
-  btnToggleAiKey.addEventListener('click', () => {
-    const isPass = aiApiKey.type === 'password';
-    aiApiKey.type = isPass ? 'text' : 'password';
-    btnToggleAiKey.textContent = isPass ? 'Hide' : 'Show';
+  function updateAiKeyBadge() {
+    if (!aiKeyCountBadge || !aiApiKey) return;
+    const keys = aiApiKey.value.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
+    if (keys.length > 1) {
+      aiKeyCountBadge.textContent = `${keys.length} Keys (Failover Active)`;
+      aiKeyCountBadge.className = 'badge-status connected';
+      aiKeyCountBadge.classList.remove('hidden');
+    } else if (keys.length === 1) {
+      aiKeyCountBadge.textContent = '1 Key Loaded';
+      aiKeyCountBadge.className = 'badge-status connected';
+      aiKeyCountBadge.classList.remove('hidden');
+    } else {
+      aiKeyCountBadge.classList.add('hidden');
+    }
+  }
+
+  aiApiKey?.addEventListener('input', updateAiKeyBadge);
+
+  btnToggleAiKey?.addEventListener('click', () => {
+    const isMasked = aiApiKey.style.webkitTextSecurity !== 'none';
+    aiApiKey.style.webkitTextSecurity = isMasked ? 'none' : 'disc';
+    btnToggleAiKey.textContent = isMasked ? 'Hide' : 'Show';
   });
 
   // --- GITHUB INTEGRATION LOGIC ---
@@ -939,14 +969,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // --- TEST AI CONNECTION ---
   btnTestAi.addEventListener('click', () => {
-    const apiKey = aiApiKey.value.trim();
+    const parsedKeys = aiApiKey.value.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
+    const apiKey = parsedKeys[0] || '';
+    const apiKeys = parsedKeys;
     const provider = aiProvider.value;
     const model = aiModel.value;
     const customEndpoint = aiCustomEndpoint.value.trim();
     const temperature = parseFloat(aiTemperature.value);
 
-    if (!apiKey && provider !== 'custom') {
-      showToast('Please enter an API Key to test.', 'error');
+    if (apiKeys.length === 0 && provider !== 'custom') {
+      showToast('Please enter at least one API Key to test.', 'error');
       return;
     }
 
@@ -957,14 +989,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     chrome.runtime.sendMessage({
       type: 'TEST_AI_CONNECTION',
       payload: {
-        aiSettings: { provider, apiKey, model, customEndpoint, temperature }
+        aiSettings: { provider, apiKey, apiKeys, model, customEndpoint, temperature }
       }
     }, (res) => {
       btnTestAi.disabled = false;
       btnTestAi.textContent = 'Test AI Connection';
 
       if (res && res.success) {
-        showToast('AI Provider verified & working perfectly! 🚀', 'success');
+        showToast(`AI verified successfully! (${apiKeys.length} key${apiKeys.length > 1 ? 's' : ''} active) 🚀`, 'success');
         aiTestPreview.classList.remove('hidden');
         aiPreviewContent.textContent = JSON.stringify(res.sampleResult, null, 2);
       } else {
@@ -984,6 +1016,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (langPython.checked) selectedLanguages.push('python');
     if (langCpp.checked) selectedLanguages.push('cpp');
     if (langRust.checked) selectedLanguages.push('rust');
+
+    const parsedKeys = aiApiKey.value.split(/[\n,;]+/).map(k => k.trim()).filter(Boolean);
 
     const platformPaths = {};
     for (const pKey of Object.keys(pathInputs)) {
@@ -1009,7 +1043,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       },
       ai: {
         provider: aiProvider.value,
-        apiKey: aiApiKey.value.trim(),
+        apiKey: parsedKeys[0] || '',
+        apiKeys: parsedKeys,
         model: aiModel.value,
         customEndpoint: aiCustomEndpoint.value.trim(),
         temperature: parseFloat(aiTemperature.value),
@@ -1317,6 +1352,29 @@ impl Solution {
   historySearch.addEventListener('input', renderHistoryTable);
   historyFilterPlatform.addEventListener('change', renderHistoryTable);
   historyFilterStatus.addEventListener('change', renderHistoryTable);
+
+  btnRefreshHistory?.addEventListener('click', async () => {
+    btnRefreshHistory.disabled = true;
+    const origHtml = btnRefreshHistory.innerHTML;
+    btnRefreshHistory.innerHTML = `
+      <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; vertical-align: -2px;">
+        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+      </svg>
+      Refreshing...
+    `;
+    try {
+      await loadHistory();
+      renderDashboard();
+      showToast('Sync history refreshed! ✓', 'success');
+    } catch (e) {
+      showToast(`Failed to refresh history: ${e.message}`, 'error');
+    } finally {
+      setTimeout(() => {
+        btnRefreshHistory.disabled = false;
+        btnRefreshHistory.innerHTML = origHtml;
+      }, 350);
+    }
+  });
 
   btnExportHistory.addEventListener('click', () => {
     const jsonStr = JSON.stringify(allHistory, null, 2);

@@ -43,12 +43,23 @@ export class StorageManager {
   }
 
   static mergeSettings(stored) {
-    return {
+    const merged = {
       github: { ...DEFAULT_SETTINGS.github, ...(stored.github || {}) },
       ai: { ...DEFAULT_SETTINGS.ai, ...(stored.ai || {}) },
       platforms: { ...DEFAULT_SETTINGS.platforms, ...(stored.platforms || {}) },
       syncPreferences: { ...DEFAULT_SETTINGS.syncPreferences, ...(stored.syncPreferences || {}) }
     };
+
+    // Auto-migrate to Gemini 3.8 Flash (Latest model)
+    if (merged.ai && (
+      !merged.ai.model ||
+      merged.ai.model.startsWith('gemini-1.') ||
+      merged.ai.model.startsWith('gemini-2.')
+    )) {
+      merged.ai.model = 'gemini-3.8-flash';
+    }
+
+    return merged;
   }
 
   /**

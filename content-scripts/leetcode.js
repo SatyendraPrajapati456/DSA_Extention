@@ -10,11 +10,17 @@
 
   let lastProcessedSubmissionId = null;
   let isChecking = false;
+  let userSubmittedAt = 0;
+
+  attachSubmitListeners();
 
   // MutationObserver to watch dynamic DOM changes in submission panel
   const observer = new MutationObserver(() => {
+    attachSubmitListeners();
     if (isChecking) return;
-    checkSubmissionStatus();
+    if (userSubmittedAt && (Date.now() - userSubmittedAt <= 60000)) {
+      checkSubmissionStatus();
+    }
   });
 
   observer.observe(document.body, {
@@ -22,7 +28,44 @@
     subtree: true
   });
 
+  // Listen for keyboard submit hotkeys (Cmd/Ctrl + Enter)
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      console.log('[AlgoSync] LeetCode submit hotkey detected');
+      userSubmittedAt = Date.now();
+    }
+  });
+
+  function attachSubmitListeners() {
+    const buttons = document.querySelectorAll('button, div[role="button"]');
+    for (const btn of buttons) {
+      if (btn.__algosync_attached) continue;
+      const text = (btn.innerText || btn.textContent || '').trim();
+      const locator = btn.getAttribute('data-e2e-locator') || '';
+      const cy = btn.getAttribute('data-cypress') || '';
+      const isSubmit =
+        locator === 'console-submit-button' ||
+        cy === 'SubmitCode' ||
+        text === 'Submit' ||
+        text.startsWith('Submit\n');
+
+      if (isSubmit) {
+        btn.__algosync_attached = true;
+        btn.addEventListener('click', () => {
+          console.log('[AlgoSync] LeetCode submit button clicked');
+          userSubmittedAt = Date.now();
+        });
+      }
+    }
+  }
+
   function checkSubmissionStatus() {
+    // Strictly require active user submission within the last 60 seconds
+    const now = Date.now();
+    if (!userSubmittedAt || (now - userSubmittedAt > 60000)) {
+      return;
+    }
+
     isChecking = true;
     try {
       // Look for LeetCode's submission result indicators
@@ -43,6 +86,7 @@
   }
 
   function handleAcceptedVerdict(container) {
+    userSubmittedAt = 0; // Consume submission intent so it cannot fire again
     const problemUrl = window.location.href.split('/submissions')[0].split('?')[0];
     const problemSlug = extractProblemSlug(problemUrl);
     

@@ -9,14 +9,47 @@
   window.AlgoSyncCommon.initHUD('Codeforces');
 
   let lastProcessed = 0;
+  let userSubmittedAt = 0;
+
+  attachSubmitListeners();
 
   const observer = new MutationObserver(() => {
-    checkCodeforcesVerdict();
+    attachSubmitListeners();
+    if (userSubmittedAt && (Date.now() - userSubmittedAt <= 60000)) {
+      checkCodeforcesVerdict();
+    }
   });
 
   observer.observe(document.body, { childList: true, subtree: true });
 
+  document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      console.log('[AlgoSync] Codeforces submit hotkey detected');
+      userSubmittedAt = Date.now();
+    }
+  });
+
+  function attachSubmitListeners() {
+    const buttons = document.querySelectorAll('input[type="submit"], button, .submit');
+    for (const btn of buttons) {
+      if (btn.__algosync_attached) continue;
+      const text = (btn.value || btn.innerText || btn.textContent || '').trim();
+      if (text.toLowerCase().includes('submit')) {
+        btn.__algosync_attached = true;
+        btn.addEventListener('click', () => {
+          console.log('[AlgoSync] Codeforces submit clicked');
+          userSubmittedAt = Date.now();
+        });
+      }
+    }
+  }
+
   function checkCodeforcesVerdict() {
+    const now = Date.now();
+    if (!userSubmittedAt || (now - userSubmittedAt > 60000)) {
+      return;
+    }
+
     // Check verdict cells in status table or popup
     const verdictSpans = document.querySelectorAll(
       'span.verdict-accepted, td.verdict-cell, span[submissionverdict="OK"]'
@@ -32,6 +65,7 @@
   }
 
   function handleAccepted(verdictEl) {
+    userSubmittedAt = 0;
     if (Date.now() - lastProcessed < 20000) return;
     lastProcessed = Date.now();
 
