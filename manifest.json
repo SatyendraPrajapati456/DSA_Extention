@@ -90,7 +90,11 @@
     },
     {
       "matches": [
-        "*://*.hackerrank.com/challenges/*"
+        "*://*.hackerrank.com/challenges/*",
+        "*://*.hackerrank.com/contests/*/challenges/*",
+        "*://*.hackerrank.com/interview/*/challenges/*",
+        "*://*.hackerrank.com/domains/*",
+        "*://*.hackerrank.com/*"
       ],
       "js": [
         "content-scripts/common.js",
