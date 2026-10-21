@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AlgoSync AI - Configuration & Dashboard</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-icon">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="16 18 22 12 16 6"></polyline>
+            <polyline points="8 6 2 12 8 18"></polyline>
+            <circle cx="12" cy="12" r="2" fill="currentColor"></circle>
+          </svg>
+        </div>
+        <div>
+          <h2 class="brand-name">AlgoSync <span class="gradient-text">AI</span></h2>
+          <span class="brand-version">v1.1.0 • Production Ready</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="tab-dashboard">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="9"></rect>
+            <rect x="14" y="3" width="7" height="5"></rect>
+            <rect x="14" y="12" width="7" height="9"></rect>
+            <rect x="3" y="16" width="7" height="5"></rect>
+          </svg>
+          Dashboard Overview
+        </button>
+
+        <button class="nav-item" data-tab="tab-onboarding">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon>
+          </svg>
+          Setup Wizard
+        </button>
+
+        <button class="nav-item" data-tab="tab-github">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
+          </svg>
+          GitHub & Platform Paths
+        </button>
+
+        <button class="nav-item" data-tab="tab-ai">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="10" rx="2"></rect>
+            <circle cx="12" cy="5" r="2"></circle>
+            <path d="M12 7v4"></path>
+            <line x1="8" y1="16" x2="8" y2="16"></line>
+            <line x1="16" y1="16" x2="16" y2="16"></line>
+          </svg>
+          AI Engine & Models
+        </button>
+
+        <button class="nav-item" data-tab="tab-platforms">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+          </svg>
+          Supported Platforms
+        </button>
+
+        <button class="nav-item" data-tab="tab-template">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Template & Preview
+        </button>
+
+        <button class="nav-item" data-tab="tab-history">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          Sync History & Logs
+        </button>
+
+        <button class="nav-item" data-tab="tab-diagnostics">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2"></path>
+          </svg>
+          Diagnostics & Test
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="user-chip" id="sidebar-user-chip">
+          <div class="avatar-placeholder" id="sidebar-avatar">?</div>
+          <div class="user-info">
+            <span class="user-name" id="sidebar-username">Not Connected</span>
+            <span class="user-status" id="sidebar-status">Setup Required</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Top Bar -->
+      <header class="topbar">
+        <div>
+          <h1 class="page-title" id="page-title">Dashboard Overview</h1>
+          <p class="page-desc" id="page-desc">Real-time status of your DSA auto-sync operations and GitHub portfolio.</p>
+        </div>
+        <div class="topbar-actions">
+          <button id="btn-save-all" class="btn btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+              <polyline points="17 21 17 13 7 13 7 21"></polyline>
+              <polyline points="7 3 7 8 15 8"></polyline>
+            </svg>
+            Save Settings
+          </button>
+        </div>
+      </header>
+
+      <div class="content-body">
+        <!-- TAB 1: DASHBOARD OVERVIEW (Section 4.2 Spec) -->
+        <section id="tab-dashboard" class="tab-pane active">
+          <!-- Connection Status Card -->
+          <div class="dashboard-banner">
+            <div class="dashboard-meta">
+              <div class="meta-row">
+                <span class="meta-label">GitHub:</span>
+                <span id="dash-gh-status" class="badge-status disconnected">Not Connected</span>
+                <button type="button" id="btn-dash-connect-gh" class="btn btn-sm btn-primary">
+                  🔑 Login / Connect GitHub
+                </button>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Repository:</span>
+                <span id="dash-repo-name" class="meta-value">Not Configured</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-label">Root Folder:</span>
+                <span id="dash-root-folder" class="meta-value">DSA</span>
+              </div>
+            </div>
+
+            <div class="platform-checklist-box">
+              <span class="checklist-title">Enabled Platforms:</span>
+              <div class="checklist-items" id="dash-platforms-list">
+                <div class="check-item enabled"><span>✓</span><span>LeetCode</span></div>
+                <div class="check-item enabled"><span>✓</span><span>GeeksforGeeks</span></div>
+                <div class="check-item enabled"><span>✓</span><span>Codeforces</span></div>
+                <div class="check-item enabled"><span>✓</span><span>CodeChef</span></div>
+                <div class="check-item enabled"><span>✓</span><span>HackerRank</span></div>
+                <div class="check-item enabled"><span>✓</span><span>HackerEarth</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 6: Specific Path for Specific Platform Card (Right on Dashboard!) -->
+          <div class="card">
+            <div class="card-header card-header-row">
+              <div>
+                <h3>📁 Platform Destination Paths</h3>
+                <p>Configure the exact GitHub folder path where each coding platform's solutions will be organized.</p>
+              </div>
+              <div class="header-btn-row">
+                <button type="button" id="btn-dash-restore-paths" class="btn btn-sm btn-secondary">Restore Defaults</button>
+                <button type="button" id="btn-dash-save-paths" class="btn btn-sm btn-primary">Save Platform Paths</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="form-row align-end" style="margin-bottom: 8px;">
+                <div class="form-group flex-1">
+                  <label for="dash-root-folder-input">DSA Root Folder</label>
+                  <input type="text" id="dash-root-folder-input" value="DSA" placeholder="e.g. DSA or CompetitiveProgramming">
+                  <span class="help-text">Base folder for your DSA repository. Changing this will update default platform subfolders below.</span>
+                </div>
+                <button type="button" id="btn-apply-root-folder" class="btn btn-secondary" style="height: 42px;">Apply to Platforms</button>
+              </div>
+
+              <div class="path-config-table">
+                <div class="path-table-header">
+                  <span class="col-platform">Platform</span>
+                  <span class="col-path">Destination Folder Path in Repository</span>
+                  <span class="col-preview">Live Upload File Preview</span>
+                </div>
+
+                <!-- LeetCode -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-leetcode">LeetCode</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input dash-platform-input" id="dash-path-leetcode" value="DSA/LeetCode" placeholder="DSA/LeetCode">
+                  </div>
+                  <div class="col-preview">
+                    <code id="dash-preview-leetcode">DSA/LeetCode/Two Sum.md</code>
+                  </div>
+                </div>
+
+                <!-- GeeksforGeeks -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-geeksforgeeks">GFG</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input dash-platform-input" id="dash-path-geeksforgeeks" value="DSA/GFG" placeholder="DSA/GFG">
+                  </div>
+                  <div class="col-preview">
+                    <code id="dash-preview-geeksforgeeks">DSA/GFG/Binary Search.md</code>
+                  </div>
+                </div>
+
+                <!-- Codeforces -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-codeforces">Codeforces</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input dash-platform-input" id="dash-path-codeforces" value="DSA/Codeforces" placeholder="DSA/Codeforces">
+                  </div>
+                  <div class="col-preview">
+                    <code id="dash-preview-codeforces">DSA/Codeforces/Watermelon.md</code>
+                  </div>
+                </div>
+
+                <!-- CodeChef -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-codechef">CodeChef</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input dash-platform-input" id="dash-path-codechef" value="DSA/CodeChef" placeholder="DSA/CodeChef">
+                  </div>
+                  <div class="col-preview">
+                    <code id="dash-preview-codechef">DSA/CodeChef/Chef and Strings.md</code>
+                  </div>
+                </div>
+
+                <!-- HackerRank -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-hackerrank">HackerRank</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input dash-platform-input" id="dash-path-hackerrank" value="DSA/HackerRank" placeholder="DSA/HackerRank">
+                  </div>
+                  <div class="col-preview">
+                    <code id="dash-preview-hackerrank">DSA/HackerRank/Array Manipulation.md</code>
+                  </div>
+                </div>
+
+                <!-- HackerEarth -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-hackerearth">HackerEarth</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input dash-platform-input" id="dash-path-hackerearth" value="DSA/HackerEarth" placeholder="DSA/HackerEarth">
+                  </div>
+                  <div class="col-preview">
+                    <code id="dash-preview-hackerearth">DSA/HackerEarth/Monk and Inversions.md</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Statistics Cards Grid -->
+          <div class="dash-stats-grid">
+            <div class="stat-card">
+              <span class="stat-label">Accepted Problems</span>
+              <span class="stat-val" id="dash-stat-accepted">0</span>
+              <span class="stat-sub">Verified submissions</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Documents Uploaded</span>
+              <span class="stat-val text-emerald" id="dash-stat-uploaded">0</span>
+              <span class="stat-sub">Committed to GitHub</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Pending Tasks</span>
+              <span class="stat-val text-amber" id="dash-stat-pending">0</span>
+              <span class="stat-sub">Processing queue</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-label">Failed Tasks</span>
+              <span class="stat-val text-rose" id="dash-stat-failed">0</span>
+              <span class="stat-sub">Requiring attention</span>
+            </div>
+          </div>
+
+          <!-- Recent Activity & Quick Actions -->
+          <div class="card">
+            <div class="card-header card-header-row">
+              <div>
+                <h3>Recent Activity</h3>
+                <p>Latest documented DSA submissions and upload operations.</p>
+              </div>
+              <div class="header-btn-row">
+                <button class="btn btn-sm btn-outline" data-switch-tab="tab-github">Open Settings</button>
+                <button class="btn btn-sm btn-secondary" data-switch-tab="tab-history">View History</button>
+                <button id="btn-dash-sync-pending" class="btn btn-sm btn-primary">Sync Pending Tasks</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div id="dash-activity-list" class="activity-feed">
+                <!-- Populated dynamically with recent submissions -->
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: SETUP WIZARD (Section 4.3 Spec) -->
+        <section id="tab-onboarding" class="tab-pane">
+          <div class="hero-banner">
+            <div class="hero-content">
+              <h2>Welcome to <span class="gradient-text">AlgoSync AI</span></h2>
+              <p>Turn your accepted DSA submissions into well-documented problem files and maintain a stellar GitHub portfolio automatically.</p>
+            </div>
+            <div class="hero-stat-pills">
+              <span class="pill">6 Platforms Supported</span>
+              <span class="pill">Custom Folder Mappings</span>
+              <span class="pill">Multilingual Solutions</span>
+            </div>
+          </div>
+
+          <!-- Wizard Progress Card -->
+          <div class="wizard-progress-card">
+            <div class="progress-info">
+              <span class="progress-title">⚡ Quick Setup Checklist</span>
+              <span class="progress-percent" id="wizard-progress-text">Step 1 of 5</span>
+            </div>
+            <div class="progress-bar-bg">
+              <div class="progress-bar-fill" id="wizard-progress-fill" style="width: 25%;"></div>
+            </div>
+          </div>
+
+          <div class="wizard-timeline">
+            <!-- Step 1 -->
+            <div class="wizard-step">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                <div class="step-header-row">
+                  <h4>Connect GitHub Account</h4>
+                  <span class="step-badge">Required</span>
+                </div>
+                <p>Generate a GitHub Personal Access Token (PAT) with <code>repo</code> scope to authorize auto-commits to your profile.</p>
+                <div class="step-btn-row">
+                  <button type="button" class="btn btn-sm btn-primary btn-open-gh-modal">🔑 Connect GitHub Now</button>
+                  <button type="button" class="btn btn-sm btn-outline" data-switch-tab="tab-github">Manual Token Input →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="wizard-step">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                <div class="step-header-row">
+                  <h4>Choose Repository & Root Folder</h4>
+                  <span class="step-badge">Required</span>
+                </div>
+                <p>Select your existing repository or create a new dedicated <code>DSA</code> repository in 1 click. Pick your root folder (e.g. <code>DSA</code> or <code>CompetitiveProgramming</code>).</p>
+                <div class="step-btn-row">
+                  <button type="button" class="btn btn-sm btn-primary" data-switch-tab="tab-dashboard">Set on Dashboard →</button>
+                  <button type="button" class="btn btn-sm btn-outline" data-switch-tab="tab-github">Repository Settings →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="wizard-step">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                <div class="step-header-row">
+                  <h4>Customize Platform Subfolders</h4>
+                  <span class="step-badge">Customizable</span>
+                </div>
+                <p>Map each coding platform to your preferred folder destination (e.g. <code>DSA/LeetCode</code>, <code>DSA/GFG</code>, <code>DSA/Codeforces</code>).</p>
+                <div class="step-btn-row">
+                  <button type="button" class="btn btn-sm btn-primary" data-switch-tab="tab-dashboard">Configure Platform Paths →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="wizard-step">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                <div class="step-header-row">
+                  <h4>Configure AI Engine</h4>
+                  <span class="step-badge">High Quality</span>
+                </div>
+                <p>Connect Google Gemini, OpenAI, or Groq to generate in-depth algorithm approaches and code in Java, Python, C++, and Rust.</p>
+                <div class="step-btn-row">
+                  <button type="button" class="btn btn-sm btn-primary" data-switch-tab="tab-ai">Setup AI Model →</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="wizard-step">
+              <div class="step-num">5</div>
+              <div class="step-content">
+                <div class="step-header-row">
+                  <h4>Test Pipeline & Finish</h4>
+                  <span class="step-badge">Verification</span>
+                </div>
+                <p>Run a simulated submission test to verify that the AI generation and GitHub upload work flawlessly.</p>
+                <div class="step-btn-row">
+                  <button type="button" class="btn btn-sm btn-primary" data-switch-tab="tab-diagnostics">Run Test Pipeline 🚀</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: GITHUB & FOLDERS (Section 5 & 6 Spec) -->
+        <section id="tab-github" class="tab-pane">
+          <!-- GitHub Authentication Card -->
+          <div class="card">
+            <div class="card-header">
+              <h3>GitHub Authentication</h3>
+              <p>Authorize AlgoSync to create and update problem files in your repository.</p>
+            </div>
+            <div class="card-body">
+              <div class="form-group">
+                <label for="gh-pat">GitHub Personal Access Token</label>
+                <div class="input-with-button">
+                  <input type="password" id="gh-pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+                  <button type="button" id="btn-toggle-pat" class="btn btn-sm btn-secondary">Show</button>
+                  <button type="button" id="btn-verify-gh" class="btn btn-sm btn-primary">Verify & Connect</button>
+                </div>
+                <span class="help-text">
+                  Need a token? <a href="https://github.com/settings/tokens/new?scopes=repo&description=AlgoSync%20AI%20Extension" target="_blank" class="link">Click here to generate a token with <code>repo</code> scope</a>.
+                </span>
+              </div>
+
+              <!-- Connected User Preview -->
+              <div id="gh-user-card" class="user-profile-preview hidden">
+                <img id="gh-user-avatar" src="" alt="Avatar" class="profile-avatar">
+                <div class="profile-details">
+                  <h4 id="gh-user-name">GitHub User</h4>
+                  <p><a id="gh-user-url" href="#" target="_blank" class="link">@username</a> • Token Authorized ✓</p>
+                </div>
+                <button type="button" id="btn-disconnect-gh" class="btn btn-sm btn-danger">Disconnect</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Repository & Root Folder Card -->
+          <div class="card">
+            <div class="card-header">
+              <h3>Repository & DSA Root Folder</h3>
+              <p>Choose your target repository, branch, and global DSA root directory.</p>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label for="gh-repo-select">Repository</label>
+                  <div class="input-with-button">
+                    <select id="gh-repo-select">
+                      <option value="">-- Connect GitHub to load repositories --</option>
+                    </select>
+                    <button type="button" id="btn-refresh-repos" class="btn btn-sm btn-secondary" title="Refresh repositories">↻</button>
+                  </div>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="gh-branch-select">Target Branch</label>
+                  <select id="gh-branch-select">
+                    <option value="main">main</option>
+                    <option value="master">master</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Create Repo Subpanel -->
+              <div class="sub-panel">
+                <h4>Or Create a New Repository</h4>
+                <div class="form-row align-end">
+                  <div class="form-group flex-1">
+                    <label for="new-repo-name">New Repository Name</label>
+                    <input type="text" id="new-repo-name" value="DSA" placeholder="e.g. DSA or Competitive-Programming">
+                  </div>
+                  <div class="form-group">
+                    <label for="new-repo-privacy">Visibility</label>
+                    <select id="new-repo-privacy">
+                      <option value="false">Public</option>
+                      <option value="true">Private</option>
+                    </select>
+                  </div>
+                  <button type="button" id="btn-create-repo" class="btn btn-primary">Create & Select</button>
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label for="gh-root-folder">DSA Root Folder</label>
+                  <input type="text" id="gh-root-folder" value="DSA" placeholder="e.g. DSA or CompetitiveProgramming">
+                  <span class="help-text">The parent directory for your practice files. Leave empty to use repository root.</span>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="gh-file-format">Document Format</label>
+                  <select id="gh-file-format">
+                    <option value="md">Markdown (.md) — Recommended with Syntax Highlighting</option>
+                    <option value="txt">Plain Text (.txt) — Standard Plain Text Format</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label class="checkbox-label">
+                  <input type="checkbox" id="gh-include-topic">
+                  <span>Organize by DSA Topic Subfolder (e.g. <code>{platformFolder}/{topic}/{title}.md</code>)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Section 6: Custom Folder Paths for Each Platform -->
+          <div class="card">
+            <div class="card-header card-header-row">
+              <div>
+                <h3>Platform Destination Paths</h3>
+                <p>Customize the exact destination path in your repository for every coding platform.</p>
+              </div>
+              <button type="button" id="btn-restore-paths" class="btn btn-sm btn-secondary">Restore Defaults</button>
+            </div>
+            <div class="card-body">
+              <div class="path-config-table">
+                <div class="path-table-header">
+                  <span class="col-platform">Platform</span>
+                  <span class="col-path">Repository Destination Path</span>
+                  <span class="col-preview">Example File Path</span>
+                </div>
+
+                <!-- LeetCode -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-leetcode">LeetCode</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input" id="path-leetcode" value="DSA/LeetCode">
+                  </div>
+                  <div class="col-preview">
+                    <code id="preview-leetcode">DSA/LeetCode/Two Sum.md</code>
+                  </div>
+                </div>
+
+                <!-- GeeksforGeeks -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-geeksforgeeks">GFG</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input" id="path-geeksforgeeks" value="DSA/GFG">
+                  </div>
+                  <div class="col-preview">
+                    <code id="preview-geeksforgeeks">DSA/GFG/Binary Search.md</code>
+                  </div>
+                </div>
+
+                <!-- Codeforces -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-codeforces">Codeforces</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input" id="path-codeforces" value="DSA/Codeforces">
+                  </div>
+                  <div class="col-preview">
+                    <code id="preview-codeforces">DSA/Codeforces/Watermelon.md</code>
+                  </div>
+                </div>
+
+                <!-- CodeChef -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-codechef">CodeChef</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input" id="path-codechef" value="DSA/CodeChef">
+                  </div>
+                  <div class="col-preview">
+                    <code id="preview-codechef">DSA/CodeChef/Chef and Strings.md</code>
+                  </div>
+                </div>
+
+                <!-- HackerRank -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-hackerrank">HackerRank</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input" id="path-hackerrank" value="DSA/HackerRank">
+                  </div>
+                  <div class="col-preview">
+                    <code id="preview-hackerrank">DSA/HackerRank/Array Manipulation.md</code>
+                  </div>
+                </div>
+
+                <!-- HackerEarth -->
+                <div class="path-row">
+                  <div class="col-platform">
+                    <span class="platform-pill platform-hackerearth">HackerEarth</span>
+                  </div>
+                  <div class="col-path">
+                    <input type="text" class="platform-path-input" id="path-hackerearth" value="DSA/HackerEarth">
+                  </div>
+                  <div class="col-preview">
+                    <code id="preview-hackerearth">DSA/HackerEarth/Monk and Inversions.md</code>
+                  </div>
+                </div>
+              </div>
+
+              <div id="path-validation-msg" class="validation-warning hidden"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: AI ENGINE -->
+        <section id="tab-ai" class="tab-pane">
+          <div class="card">
+            <div class="card-header">
+              <h3>AI Provider & Model Configuration</h3>
+              <p>Configure the AI model that analyzes accepted submissions and produces multi-language implementations.</p>
+            </div>
+            <div class="card-body">
+              <div class="form-row">
+                <div class="form-group flex-1">
+                  <label for="ai-provider">AI Provider</label>
+                  <select id="ai-provider">
+                    <option value="gemini">Google Gemini (Recommended & Fast)</option>
+                    <option value="openai">OpenAI (GPT-4o / GPT-4o-mini)</option>
+                    <option value="groq">Groq Cloud (Llama 3.3 70B Ultra-fast)</option>
+                    <option value="custom">Custom (OpenAI-compatible / Ollama)</option>
+                  </select>
+                </div>
+
+                <div class="form-group flex-1">
+                  <label for="ai-model">Model</label>
+                  <select id="ai-model">
+                    <!-- Populated dynamically -->
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="ai-api-key">API Key</label>
+                <div class="input-with-button">
+                  <input type="password" id="ai-api-key" placeholder="Enter your provider API key">
+                  <button type="button" id="btn-toggle-ai-key" class="btn btn-sm btn-secondary">Show</button>
+                  <button type="button" id="btn-test-ai" class="btn btn-sm btn-primary">Test AI Connection</button>
+                </div>
+                <span class="help-text" id="ai-key-hint">
+                  Get a free Gemini API key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link">Google AI Studio</a>. Keys are stored locally on your device.
+                </span>
+              </div>
+
+              <div class="form-group hidden" id="custom-endpoint-group">
+                <label for="ai-custom-endpoint">Custom API Endpoint URL</label>
+                <input type="text" id="ai-custom-endpoint" value="http://localhost:11434/v1" placeholder="http://localhost:11434/v1">
+                <span class="help-text">Compatible with Ollama, OpenRouter, LocalAI, or any OpenAI-compatible proxy.</span>
+              </div>
+
+              <div class="form-group">
+                <label for="ai-temperature">Creativity / Temperature: <span id="temp-val">0.2</span></label>
+                <input type="range" id="ai-temperature" min="0" max="1" step="0.05" value="0.2">
+                <span class="help-text">Lower temperature (0.1 - 0.3) produces more deterministic, precise algorithmic explanations.</span>
+              </div>
+
+              <div class="form-group">
+                <label>Languages to Generate Solutions For</label>
+                <div class="checkbox-group">
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="lang-java" value="java" checked>
+                    <span>Java</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="lang-python" value="python" checked>
+                    <span>Python</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="lang-cpp" value="cpp" checked>
+                    <span>C++</span>
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" id="lang-rust" value="rust" checked>
+                    <span>Rust</span>
+                  </label>
+                </div>
+                <span class="help-text">All 4 languages enabled by default. Your original submission code is always preserved!</span>
+              </div>
+
+              <!-- AI Test Result Preview Box -->
+              <div id="ai-test-preview" class="ai-preview-box hidden">
+                <div class="preview-header">
+                  <span>AI Test Verification: Success ✓</span>
+                  <button type="button" id="btn-close-ai-preview" class="text-btn">Close</button>
+                </div>
+                <pre id="ai-preview-content"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 5: PLATFORMS -->
+        <section id="tab-platforms" class="tab-pane">
+          <div class="card">
+            <div class="card-header">
+              <h3>Supported Coding Platforms</h3>
+              <p>Toggle automatic submission tracking on each supported coding platform.</p>
+            </div>
+            <div class="card-body">
+              <div class="platforms-grid">
+                <!-- LeetCode -->
+                <div class="platform-card">
+                  <div class="platform-header">
+                    <div class="platform-badge leetcode">LC</div>
+                    <div>
+                      <h4 class="platform-title">LeetCode</h4>
+                      <span class="platform-domain">leetcode.com</span>
+                    </div>
+                  </div>
+                  <p class="platform-info">Tracks submissions on LeetCode. Detects "Accepted" verdict, extracts statement, Monaco code, runtime, and memory stats.</p>
+                  <div class="platform-footer">
+                    <span class="status-indicator-tag active">Active</span>
+                    <label class="switch">
+                      <input type="checkbox" id="platform-leetcode" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- GeeksforGeeks -->
+                <div class="platform-card">
+                  <div class="platform-header">
+                    <div class="platform-badge geeksforgeeks">GFG</div>
+                    <div>
+                      <h4 class="platform-title">GeeksforGeeks</h4>
+                      <span class="platform-domain">geeksforgeeks.org</span>
+                    </div>
+                  </div>
+                  <p class="platform-info">Monitors GFG Practice problems. Detects "Problem Solved Successfully", extracts Ace editor code and problem details.</p>
+                  <div class="platform-footer">
+                    <span class="status-indicator-tag active">Active</span>
+                    <label class="switch">
+                      <input type="checkbox" id="platform-geeksforgeeks" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- Codeforces -->
+                <div class="platform-card">
+                  <div class="platform-header">
+                    <div class="platform-badge codeforces">CF</div>
+                    <div>
+                      <h4 class="platform-title">Codeforces</h4>
+                      <span class="platform-domain">codeforces.com</span>
+                    </div>
+                  </div>
+                  <p class="platform-info">Monitors contest & problemset status pages. Detects verified "Accepted" verdicts and extracts problem statement and submission.</p>
+                  <div class="platform-footer">
+                    <span class="status-indicator-tag active">Active</span>
+                    <label class="switch">
+                      <input type="checkbox" id="platform-codeforces" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- CodeChef -->
+                <div class="platform-card">
+                  <div class="platform-header">
+                    <div class="platform-badge codechef">CC</div>
+                    <div>
+                      <h4 class="platform-title">CodeChef</h4>
+                      <span class="platform-domain">codechef.com</span>
+                    </div>
+                  </div>
+                  <p class="platform-info">Observes CodeChef problem solver. Detects "Correct Answer (100 pts)" and captures accepted source code.</p>
+                  <div class="platform-footer">
+                    <span class="status-indicator-tag active">Active</span>
+                    <label class="switch">
+                      <input type="checkbox" id="platform-codechef" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- HackerRank -->
+                <div class="platform-card">
+                  <div class="platform-header">
+                    <div class="platform-badge hackerrank">HR</div>
+                    <div>
+                      <h4 class="platform-title">HackerRank</h4>
+                      <span class="platform-domain">hackerrank.com</span>
+                    </div>
+                  </div>
+                  <p class="platform-info">Detects "Congratulations! You have passed all test cases" modal and captures problem descriptions and editor code.</p>
+                  <div class="platform-footer">
+                    <span class="status-indicator-tag active">Active</span>
+                    <label class="switch">
+                      <input type="checkbox" id="platform-hackerrank" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- HackerEarth -->
+                <div class="platform-card">
+                  <div class="platform-header">
+                    <div class="platform-badge hackerearth">HE</div>
+                    <div>
+                      <h4 class="platform-title">HackerEarth</h4>
+                      <span class="platform-domain">hackerearth.com</span>
+                    </div>
+                  </div>
+                  <p class="platform-info">Detects "Correct / Accepted" evaluation verdict on practice challenges and extracts solution code.</p>
+                  <div class="platform-footer">
+                    <span class="status-indicator-tag active">Active</span>
+                    <label class="switch">
+                      <input type="checkbox" id="platform-hackerearth" checked>
+                      <span class="slider round"></span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: TEMPLATE & PREVIEW -->
+        <section id="tab-template" class="tab-pane">
+          <div class="card">
+            <div class="card-header card-header-row">
+              <div>
+                <h3>Standard Generated Problem File Preview</h3>
+                <p>Every problem file uploaded to GitHub strictly follows this format (Section 8 & 9).</p>
+              </div>
+              <div class="header-btn-row">
+                <div class="btn-group-toggle" style="display: flex; gap: 4px; background: rgba(0,0,0,0.3); padding: 3px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
+                  <button type="button" id="btn-preview-format-md" class="btn btn-sm btn-primary">Markdown (.md)</button>
+                  <button type="button" id="btn-preview-format-txt" class="btn btn-sm btn-secondary">Plain Text (.txt)</button>
+                </div>
+                <button type="button" id="btn-copy-template" class="btn btn-sm btn-secondary">Copy Sample</button>
+                <button type="button" id="btn-download-template" class="btn btn-sm btn-primary">Download Sample</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <pre id="template-preview-code" class="code-preview-block"></pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 7: SYNC HISTORY -->
+        <section id="tab-history" class="tab-pane">
+          <div class="card">
+            <div class="card-header card-header-row">
+              <div>
+                <h3>Synchronization History & Audit Log</h3>
+                <p>Complete record of all detected, generated, and uploaded problem documents.</p>
+              </div>
+              <div class="header-btn-row">
+                <button id="btn-export-history" class="btn btn-sm btn-secondary">Export JSON</button>
+                <button id="btn-clear-history" class="btn btn-sm btn-danger">Clear History</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- Filter Bar -->
+              <div class="filter-bar">
+                <input type="text" id="history-search" placeholder="Search by problem title..." class="search-input">
+                <select id="history-filter-platform" class="filter-select">
+                  <option value="">All Platforms</option>
+                  <option value="LeetCode">LeetCode</option>
+                  <option value="GeeksforGeeks">GeeksforGeeks</option>
+                  <option value="Codeforces">Codeforces</option>
+                  <option value="CodeChef">CodeChef</option>
+                  <option value="HackerRank">HackerRank</option>
+                  <option value="HackerEarth">HackerEarth</option>
+                </select>
+                <select id="history-filter-status" class="filter-select">
+                  <option value="">All Statuses</option>
+                  <option value="SUCCESS">Success</option>
+                  <option value="FAILED">Failed</option>
+                  <option value="GENERATING">In Progress</option>
+                </select>
+              </div>
+
+              <!-- History Table -->
+              <div class="table-container">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Platform</th>
+                      <th>Problem Title</th>
+                      <th>Language</th>
+                      <th>Destination Path</th>
+                      <th>Status</th>
+                      <th>Time</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="history-table-body">
+                    <!-- Populated dynamically -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 8: DIAGNOSTICS & TEST -->
+        <section id="tab-diagnostics" class="tab-pane">
+          <div class="card">
+            <div class="card-header">
+              <h3>End-to-End Pipeline Simulator</h3>
+              <p>Simulate an accepted submission to test your AI generation, path resolution, and GitHub upload without visiting an online judge.</p>
+            </div>
+            <div class="card-body">
+              <div class="diagnostic-box">
+                <h4>Simulated Problem: Two Sum (LeetCode #1)</h4>
+                <p>Sends an accepted solution through the full pipeline: Platform Detection → AI Multilingual Solutions → Format Generation → Custom Path Resolution → GitHub Commit.</p>
+                <div class="diag-action-row">
+                  <button id="btn-run-diag" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                    </svg>
+                    Run End-to-End Test Sync
+                  </button>
+                  <span id="diag-status" class="diag-status-text">Ready to test</span>
+                </div>
+              </div>
+
+              <div id="diag-log-container" class="diag-log-box hidden">
+                <h4>Pipeline Log Output</h4>
+                <pre id="diag-log-content"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modal for viewing generated document -->
+  <div id="file-modal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modal-file-title">Generated Problem Document</h3>
+        <button id="btn-close-modal" class="icon-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <pre id="modal-file-content" class="modal-code"></pre>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-copy-modal-file" class="btn btn-secondary">Copy Content</button>
+        <button id="btn-close-modal-footer" class="btn btn-primary">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GitHub Login & Connection Modal -->
+  <div id="gh-login-modal" class="modal-overlay hidden">
+    <div class="modal-card" style="width: 580px;">
+      <div class="modal-header">
+        <h3>🔑 Connect Your GitHub Account</h3>
+        <button id="btn-close-gh-modal" class="icon-btn">✕</button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+        <p style="font-size: 13.5px; color: var(--text-muted); margin: 0;">
+          Connect your GitHub account to enable automatic commits of your DSA problem documents directly to your repository.
+        </p>
+
+        <div class="form-group">
+          <label for="modal-gh-pat">GitHub Personal Access Token</label>
+          <div class="input-with-button">
+            <input type="password" id="modal-gh-pat" placeholder="ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" autocomplete="off">
+            <button type="button" id="btn-toggle-modal-pat" class="btn btn-sm btn-secondary">Show</button>
+            <button type="button" id="btn-verify-modal-gh" class="btn btn-sm btn-primary">Connect Account</button>
+          </div>
+          <span class="help-text" style="margin-top: 6px; display: block;">
+            Don't have a token yet? <a href="https://github.com/settings/tokens/new?scopes=repo&description=AlgoSync%20AI%20Extension" target="_blank" class="link"><strong>👉 Click here to generate a token with <code>repo</code> scope</strong></a>.
+          </span>
+        </div>
+
+        <!-- Connected Account Card in Modal -->
+        <div id="modal-gh-user-card" class="user-profile-preview hidden" style="margin-top: 4px;">
+          <img id="modal-gh-user-avatar" src="" alt="Avatar" class="profile-avatar">
+          <div class="profile-details" style="flex: 1;">
+            <h4 id="modal-gh-user-name">GitHub User</h4>
+            <p><a id="modal-gh-user-url" href="#" target="_blank" class="link">@username</a> • Authorized ✓</p>
+          </div>
+        </div>
+
+        <!-- Repository Selector in Modal -->
+        <div id="modal-repo-section" class="form-group hidden">
+          <label for="modal-gh-repo-select">Select Target Repository</label>
+          <div class="input-with-button">
+            <select id="modal-gh-repo-select" style="flex: 1;">
+              <option value="">-- Choose Repository --</option>
+            </select>
+            <button type="button" id="btn-modal-create-dsa-repo" class="btn btn-sm btn-secondary" title="Create DSA repo if missing">
+              + New "DSA" Repo
+            </button>
+          </div>
+          <span class="help-text">Where problem documents will be organized and uploaded.</span>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="btn-cancel-gh-modal" class="btn btn-secondary">Cancel</button>
+        <button id="btn-save-gh-modal" class="btn btn-primary" disabled>Save & Use Repository</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+{
+  "manifest_version": 3,
+  "name": "AlgoSync AI - DSA Auto-Sync & GitHub Portfolio",
+  "version": "1.0.0",
+  "description": "Automatically documents accepted DSA solutions with AI explanations, multi-language solutions, and syncs them to your GitHub repository.",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "AlgoSync AI",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "notifications"
+  ],
+  "host_permissions": [
+    "https://api.github.com/*",
+    "*://*.leetcode.com/*",
+    "*://*.geeksforgeeks.org/*",
+    "*://*.codeforces.com/*",
+    "*://*.codechef.com/*",
+    "*://*.hackerrank.com/*",
+    "*://*.hackerearth.com/*",
+    "https://generativelanguage.googleapis.com/*",
+    "https://api.openai.com/*",
+    "https://api.groq.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.leetcode.com/problems/*"
+      ],
+      "js": [
+        "content-scripts/common.js",
+        "content-scripts/leetcode.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.geeksforgeeks.org/problems/*",
+        "*://practice.geeksforgeeks.org/problems/*"
+      ],
+      "js": [
+        "content-scripts/common.js",
+        "content-scripts/geeksforgeeks.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.codeforces.com/problemset/*",
+        "*://*.codeforces.com/contest/*"
+      ],
+      "js": [
+        "content-scripts/common.js",
+        "content-scripts/codeforces.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.codechef.com/problems/*",
+        "*://*.codechef.com/practice/*",
+        "*://*.codechef.com/*"
+      ],
+      "js": [
+        "content-scripts/common.js",
+        "content-scripts/codechef.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.hackerrank.com/challenges/*"
+      ],
+      "js": [
+        "content-scripts/common.js",
+        "content-scripts/hackerrank.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.hackerearth.com/practice/*",
+        "*://*.hackerearth.com/problem/*"
+      ],
+      "js": [
+        "content-scripts/common.js",
+        "content-scripts/hackerearth.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
