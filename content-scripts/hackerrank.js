@@ -189,14 +189,14 @@
     const url = window.location.href.split('?')[0];
     const description = extractDescription();
     const originalCode = extractCode();
-    const originalLanguage = extractLanguage();
+    const originalLanguage = extractLanguage(originalCode);
 
     const submissionData = {
       platform: 'HackerRank',
       problemId: slug || 'hackerrank-challenge',
       title: title || 'HackerRank Problem',
       url: url,
-      originalLanguage: originalLanguage || 'Python',
+      originalLanguage: originalLanguage || 'Java',
       originalCode: originalCode || '// Original code preserved from HackerRank',
       description: description || 'Refer to HackerRank problem statement.',
       runtime: 'N/A',
@@ -327,18 +327,37 @@
   }
 
   /**
-   * Extracts the selected programming language.
+   * Extracts the selected programming language using DOM dropdowns,
+   * editor attributes, and intelligent code syntax analysis.
    */
-  function extractLanguage() {
+  function extractLanguage(code) {
+    let detectedFromDom = '';
+
     const selectors = [
       'button[data-analytics="SelectLanguage"]',
+      'div[data-analytics="SelectLanguage"]',
+      'div[class*="select-language"] [class*="singleValue"]',
       'div[class*="select-language"] button',
+      'div[class*="select-language"] span',
+      'div.select-language-dropdown [class*="singleValue"]',
+      'div.select-language-dropdown',
+      'div.select-language',
       'select[class*="language-select"]',
+      'select.select-language',
+      'select[name="language"]',
+      'select.hr_select-language',
+      'div[class*="LanguageSelect"] [class*="singleValue"]',
+      'div[class*="LanguageSelect"]',
       'div[class*="language-select"]',
       '.select-language-dropdown',
       '.select-language',
       'button.select-language',
-      '.css-1hwfws3'
+      '[class*="singleValue"]',
+      '[class*="Select-value"]',
+      '.css-1uccc91-singleValue',
+      '.css-1hwfws3',
+      'div[data-automation*="language"]',
+      '[aria-label*="Language" i]'
     ];
 
     for (const sel of selectors) {
@@ -346,42 +365,87 @@
       if (el) {
         if (el.tagName === 'SELECT') {
           const selected = el.options[el.selectedIndex];
-          if (selected && selected.text) return cleanLanguageName(selected.text);
+          if (selected && selected.text) {
+            detectedFromDom = cleanLanguageName(selected.text);
+            if (detectedFromDom) break;
+          }
         }
         const text = (el.innerText || el.textContent || '').trim();
-        if (text && text.length < 35) {
-          return cleanLanguageName(text);
+        if (text && text.length > 0 && text.length < 35) {
+          const cleaned = cleanLanguageName(text);
+          if (cleaned) {
+            detectedFromDom = cleaned;
+            break;
+          }
         }
       }
     }
 
     // Monaco data-mode-id attribute fallback
-    const monaco = document.querySelector('.monaco-editor[data-mode-id]');
-    if (monaco) {
-      const mode = monaco.getAttribute('data-mode-id');
-      if (mode) return mapModeToLanguage(mode);
+    if (!detectedFromDom) {
+      const monaco = document.querySelector('.monaco-editor[data-mode-id], [data-mode-id]');
+      if (monaco) {
+        const mode = monaco.getAttribute('data-mode-id');
+        if (mode) detectedFromDom = mapModeToLanguage(mode);
+      }
     }
 
-    return 'Python';
+    // Intelligent Code-based Language Analysis
+    const detectedFromCode = window.AlgoSyncCommon?.detectLanguageFromCode ?
+      window.AlgoSyncCommon.detectLanguageFromCode(code) : null;
+
+    console.log('[AlgoSync] HackerRank Language Resolution:', { detectedFromDom, detectedFromCode });
+
+    // Prioritize unambiguous code analysis if DOM extraction is absent, generic, or conflicting
+    if (detectedFromCode) {
+      if (!detectedFromDom) {
+        return detectedFromCode;
+      }
+      // If code is unequivocally Java (import java., public class, etc.) but DOM says something else:
+      if (detectedFromCode === 'Java' && detectedFromDom !== 'Java') {
+        console.warn(`[AlgoSync] Overriding DOM language "${detectedFromDom}" with code analysis "Java"`);
+        return 'Java';
+      }
+      if (detectedFromCode === 'C++' && detectedFromDom !== 'C++') {
+        console.warn(`[AlgoSync] Overriding DOM language "${detectedFromDom}" with code analysis "C++"`);
+        return 'C++';
+      }
+      if (detectedFromCode === 'Python' && !detectedFromDom.startsWith('Python')) {
+        return 'Python';
+      }
+    }
+
+    if (detectedFromDom) return detectedFromDom;
+    if (detectedFromCode) return detectedFromCode;
+
+    return 'Java';
   }
 
   function cleanLanguageName(raw) {
-    const lower = raw.toLowerCase();
-    if (lower.includes('python3') || lower.includes('python 3')) return 'Python3';
-    if (lower.includes('python')) return 'Python';
-    if (lower.includes('c++') || lower.includes('cpp')) return 'C++';
-    if (lower.includes('java 8') || lower.includes('java 15') || lower.includes('java')) return 'Java';
-    if (lower.includes('c#') || lower.includes('csharp')) return 'C#';
+    if (!raw) return '';
+    const lower = raw.toLowerCase().trim();
+
+    // Note: check 'javascript' before 'java' because 'javascript' contains 'java'
     if (lower.includes('javascript') || lower.includes('node')) return 'JavaScript';
     if (lower.includes('typescript')) return 'TypeScript';
-    if (lower.includes('go') || lower.includes('golang')) return 'Go';
+    if (lower.includes('python3') || lower.includes('python 3')) return 'Python3';
+    if (lower.includes('python') || lower.includes('pypy')) return 'Python';
+    if (lower.includes('c++') || lower.includes('cpp')) return 'C++';
+    if (lower.includes('c#') || lower.includes('csharp')) return 'C#';
+    if (lower.includes('java')) return 'Java'; // matches 'Java 8', 'Java 15', 'Java 7', 'Java'
     if (lower.includes('rust')) return 'Rust';
+    if (lower.includes('go') || lower.includes('golang')) return 'Go';
+    if (lower.includes('kotlin')) return 'Kotlin';
+    if (lower.includes('swift')) return 'Swift';
+    if (lower.includes('scala')) return 'Scala';
     if (lower.includes('ruby')) return 'Ruby';
     if (lower.includes('c') && !lower.includes('css')) return 'C';
+
     return raw.split('\n')[0].trim();
   }
 
   function mapModeToLanguage(mode) {
+    if (!mode) return 'Java';
     const m = mode.toLowerCase();
     if (m === 'python') return 'Python';
     if (m === 'cpp') return 'C++';

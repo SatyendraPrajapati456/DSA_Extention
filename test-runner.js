@@ -234,8 +234,62 @@ const manifest = JSON.parse(manifestRaw);
 assert(manifest.manifest_version === 3, 'Manifest version is 3');
 assert(manifest.content_scripts.length === 6, 'All 6 platform content scripts registered');
 
+// 9. Test Intelligent Code Language Detection
+console.log('\n[9] Testing Code Language Detection...');
+const commonScript = fs.readFileSync('content-scripts/common.js', 'utf8');
+const sandboxWindow = {};
+const evalCommon = new Function('window', commonScript);
+evalCommon(sandboxWindow);
+const detectLang = sandboxWindow.AlgoSyncCommon.detectLanguageFromCode;
+
+const javaSample = `
+import java.io.*;
+import java.util.*;
+
+class Result {
+    public static long aVeryBigSum(List<Long> ar) {
+        long sum = 0;
+        for (long num : ar) {
+            sum += num;
+        }
+        return sum;
+    }
+}
+
+public class Solution {
+    public static void main(String[] args) throws IOException {
+        System.out.println("Ready");
+    }
+}
+`;
+
+const pythonSample = `
+def aVeryBigSum(ar):
+    return sum(ar)
+
+if __name__ == '__main__':
+    print(aVeryBigSum([1000000001, 1000000002]))
+`;
+
+const cppSample = `
+#include <iostream>
+#include <vector>
+using namespace std;
+
+long aVeryBigSum(vector<long> ar) {
+    long total = 0;
+    for (auto n : ar) total += n;
+    return total;
+}
+`;
+
+assert(detectLang(javaSample) === 'Java', 'Detects HackerRank Java solution as "Java"');
+assert(detectLang(pythonSample) === 'Python', 'Detects Python solution as "Python"');
+assert(detectLang(cppSample) === 'C++', 'Detects C++ solution as "C++"');
+
 console.log(`\n========================================`);
 console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
 console.log(`========================================\n`);
 
 if (failed > 0) process.exit(1);
+

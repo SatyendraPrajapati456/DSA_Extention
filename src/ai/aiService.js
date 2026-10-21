@@ -164,48 +164,82 @@ Return a single JSON object with EXACTLY this structure:
   }
 
   /**
-   * Calls Google Gemini API
+   * Calls Google Gemini API with automatic retry and fallback on 503/429 errors
    */
   static async callGemini({ apiKey, model, temperature, systemPrompt, userPrompt }) {
-    const selectedModel = model || 'gemini-3.8-flash';
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`;
+    const primaryModel = model || 'gemini-2.5-flash';
+    // Fallback list to survive high-demand temporary outages (503 / 429)
+    const modelsToTry = [primaryModel];
+    if (primaryModel !== 'gemini-2.5-flash') modelsToTry.push('gemini-2.5-flash');
+    if (primaryModel !== 'gemini-1.5-flash') modelsToTry.push('gemini-1.5-flash');
 
-    const requestBody = {
-      systemInstruction: {
-        parts: [{ text: systemPrompt }]
-      },
-      contents: [
-        {
-          role: 'user',
-          parts: [{ text: userPrompt }]
+    let lastError = null;
+
+    for (const currentModel of modelsToTry) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+
+      const requestBody = {
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
+        },
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: userPrompt }]
+          }
+        ],
+        generationConfig: {
+          temperature: temperature || 0.2,
+          responseMimeType: 'application/json'
         }
-      ],
-      generationConfig: {
-        temperature: temperature || 0.2,
-        responseMimeType: 'application/json'
+      };
+
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+          });
+
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            const errMsg = errData.error?.message || response.statusText;
+
+            // If 503 (high demand) or 429 (rate limit), pause and retry
+            if ((response.status === 503 || response.status === 429) && attempt === 1) {
+              console.warn(`[AlgoSync] Gemini (${currentModel}) returned ${response.status}. Retrying in 1.5s...`);
+              await new Promise(r => setTimeout(r, 1500));
+              continue;
+            }
+
+            throw new Error(`Gemini API Error (${response.status}): ${errMsg}`);
+          }
+
+          const data = await response.json();
+          const candidate = data.candidates?.[0];
+          const text = candidate?.content?.parts?.[0]?.text;
+
+          if (!text) {
+            throw new Error('Gemini API returned an empty response.');
+          }
+
+          return text;
+
+        } catch (err) {
+          lastError = err;
+          // If error is 503 / 429 and attempt 1, try again
+          if (attempt === 1 && (err.message.includes('503') || err.message.includes('429'))) {
+            await new Promise(r => setTimeout(r, 1500));
+            continue;
+          }
+          // Otherwise try next model in fallback list
+          break;
+        }
       }
-    };
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
-
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(`Gemini API Error (${response.status}): ${errData.error?.message || response.statusText}`);
     }
 
-    const data = await response.json();
-    const candidate = data.candidates?.[0];
-    const text = candidate?.content?.parts?.[0]?.text;
-
-    if (!text) {
-      throw new Error('Gemini API returned an empty response.');
-    }
-
-    return text;
+    throw lastError || new Error('Gemini API call failed after retries.');
   }
 
   /**

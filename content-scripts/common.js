@@ -138,5 +138,90 @@ window.AlgoSyncCommon = {
     temp.querySelectorAll('li').forEach(li => li.before('• '));
 
     return (temp.textContent || temp.innerText || '').trim();
+  },
+
+  /**
+   * Intelligently detects programming language by analyzing syntax and keywords in code
+   * @param {string} code 
+   * @returns {string|null} Detected language e.g. 'Java', 'Python', 'C++', 'C', 'JavaScript', etc.
+   */
+  detectLanguageFromCode(code) {
+    if (!code || typeof code !== 'string') return null;
+    const text = code.trim();
+    if (!text || text.length < 5) return null;
+
+    let javaScore = 0;
+    let pythonScore = 0;
+    let cppScore = 0;
+    let cScore = 0;
+    let jsScore = 0;
+    let rustScore = 0;
+    let goScore = 0;
+
+    // Java syntax indicators
+    if (/import\s+java\./.test(text)) javaScore += 15;
+    if (/public\s+class\s+\w+/.test(text)) javaScore += 10;
+    if (/public\s+static\s+void\s+main/.test(text)) javaScore += 12;
+    if (/System\.out\.(println|print)/.test(text)) javaScore += 10;
+    if (/\b(Scanner|BufferedReader|BufferedWriter)\b/.test(text)) javaScore += 8;
+    if (/\b(List|ArrayList|Map|HashMap|Set|HashSet)<[A-Z]/.test(text)) javaScore += 8;
+    if (/throws\s+(IO)?Exception/.test(text)) javaScore += 8;
+    if (/@Override/.test(text)) javaScore += 6;
+    if (/\bpublic\s+(static\s+)?(int|long|void|boolean|String|double|float)\s+\w+\s*\(/.test(text)) javaScore += 8;
+    if (/class\s+Result\b/.test(text) && /\b(long|int|List<|String)\b/.test(text)) javaScore += 8;
+    if (/\b(long|int|boolean|double)\s+\w+\s*=\s*[^;]+;/.test(text)) javaScore += 4;
+
+    // Python syntax indicators
+    if (/def\s+\w+\s*\([^)]*\)\s*:/.test(text)) pythonScore += 12;
+    if (/if\s+__name__\s*==\s*['"]__main__['"]\s*:/.test(text)) pythonScore += 12;
+    if (/from\s+\w+\s+import/.test(text)) pythonScore += 8;
+    if (/\bimport\s+(sys|math|os|collections|heapq|itertools)\b/.test(text)) pythonScore += 8;
+    if (/\belif\s+/.test(text)) pythonScore += 8;
+    if (/\bself\.\w+/.test(text)) pythonScore += 8;
+    if (/print\s*\([^)]*\)\s*$/m.test(text) && !/;/.test(text)) pythonScore += 5;
+    if (/class\s+\w+(\([^)]*\))?\s*:/.test(text)) pythonScore += 6;
+
+    // C++ syntax indicators
+    if (/#include\s*<[a-z_./]+>/.test(text)) cppScore += 8;
+    if (/using\s+namespace\s+std;/.test(text)) cppScore += 12;
+    if (/std::(vector|cout|cin|string|map|unordered_map)/.test(text)) cppScore += 10;
+    if (/\b(cout\s*<<|cin\s*>>)/.test(text)) cppScore += 10;
+    if (/\bvector<[a-z0-9_]+>/i.test(text)) cppScore += 8;
+
+    // C syntax indicators
+    if (/#include\s*<stdio\.h>/.test(text)) cScore += 10;
+    if (/\bprintf\s*\(/.test(text) && cppScore === 0 && javaScore === 0) cScore += 6;
+
+    // JavaScript / TypeScript syntax indicators
+    if (/\bfunction\s+\w+\s*\(/.test(text)) jsScore += 6;
+    if (/\bconsole\.log\s*\(/.test(text)) jsScore += 10;
+    if (/\b(const|let|var)\s+\w+\s*=/.test(text)) jsScore += 5;
+
+    // Rust syntax indicators
+    if (/\bfn\s+(main|\w+)\s*\(/.test(text)) rustScore += 10;
+    if (/println!\s*\(/.test(text)) rustScore += 10;
+    if (/use\s+std::/.test(text)) rustScore += 8;
+
+    // Go syntax indicators
+    if (/package\s+main/.test(text)) goScore += 12;
+    if (/func\s+(main|\w+)\s*\(/.test(text)) goScore += 10;
+    if (/fmt\.(Println|Print|Scan)/.test(text)) goScore += 10;
+
+    const candidates = [
+      { lang: 'Java', score: javaScore },
+      { lang: 'Python', score: pythonScore },
+      { lang: 'C++', score: cppScore },
+      { lang: 'C', score: cScore },
+      { lang: 'JavaScript', score: jsScore },
+      { lang: 'Rust', score: rustScore },
+      { lang: 'Go', score: goScore }
+    ];
+
+    candidates.sort((a, b) => b.score - a.score);
+    if (candidates[0].score >= 6) {
+      return candidates[0].lang;
+    }
+    return null;
   }
 };
+
