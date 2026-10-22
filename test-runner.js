@@ -439,6 +439,20 @@ assert(sortedMock[0].textContent.includes('public class Solution'), 'Monaco sort
 assert(sortedMock[1].textContent.includes('public static void main'), 'Monaco sorting puts top: 19px line second');
 assert(sortedMock[2].textContent.includes('int alice'), 'Monaco sorting puts top: 38px line third');
 
+// 16. Test CodeChef Cross-Page Persistence, Active Polling & Verdict Detection
+console.log('\n[16] Testing CodeChef Cross-Page Persistence, Polling & Verdict Detection...');
+const ccFullScript = fs.readFileSync('content-scripts/codechef.js', 'utf8');
+const ccManifest = manifestObj.content_scripts.find(cs => cs.js.includes('content-scripts/codechef.js'));
+
+assert(ccManifest.matches.includes('*://*.codechef.com/*'), 'Manifest matches all CodeChef subdomains and routes');
+assert(ccManifest.matches.includes('*://codechef.com/*'), 'Manifest matches naked domain codechef.com');
+assert(ccFullScript.includes('sessionStorage.setItem(CC_PENDING_KEY'), 'CodeChef persists submission intent to sessionStorage before page navigation/reload');
+assert(ccFullScript.includes('sessionStorage.getItem(CC_PENDING_KEY'), 'CodeChef restores submission intent from sessionStorage after page redirect');
+assert(ccFullScript.includes('startPollingForVerdict'), 'CodeChef uses active high-frequency polling for async verdict evaluation');
+assert(ccFullScript.includes('/correct\\s*answer/i'), 'CodeChef matches "Correct Answer" using flexible whitespace regex');
+assert(ccFullScript.includes('100\\s*pts'), 'CodeChef detects 100 pts score acceptance');
+assert(ccFullScript.includes('extractCodeFromMonaco'), 'CodeChef uses extractCodeFromMonaco for sorted line extraction');
+
 console.log(`\n========================================`);
 console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
 console.log(`========================================\n`);

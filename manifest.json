@@ -31,12 +31,14 @@
     "storage",
     "notifications"
   ],
-  "host_permissions": [
+    "host_permissions": [
     "https://api.github.com/*",
     "*://*.leetcode.com/*",
     "*://*.geeksforgeeks.org/*",
     "*://*.codeforces.com/*",
+    "*://codeforces.com/*",
     "*://*.codechef.com/*",
+    "*://codechef.com/*",
     "*://*.hackerrank.com/*",
     "*://*.hackerearth.com/*",
     "https://generativelanguage.googleapis.com/*",
@@ -78,9 +80,8 @@
     },
     {
       "matches": [
-        "*://*.codechef.com/problems/*",
-        "*://*.codechef.com/practice/*",
-        "*://*.codechef.com/*"
+        "*://*.codechef.com/*",
+        "*://codechef.com/*"
       ],
       "js": [
         "content-scripts/common.js",
