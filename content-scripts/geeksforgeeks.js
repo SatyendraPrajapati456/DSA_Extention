@@ -107,6 +107,27 @@
 
     isChecking = true;
     try {
+      // Check for failure / not accepted first
+      const failureEls = document.querySelectorAll(
+        '.verdict_wrong, .verdict_tle, .verdict_compilation, [class*="problems_content__header__toast"], [class*="problems_header_content__status"], [class*="toast"]'
+      );
+      for (const el of failureEls) {
+        const text = (el.innerText || el.textContent || '').trim();
+        if (/wrong\s*answer|compilation\s*error|time\s*limit\s*exceeded|runtime\s*error/i.test(text)) {
+          console.log('[AlgoSync] GFG submission was NOT accepted:', text);
+          userSubmittedAt = 0;
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+          }
+          window.AlgoSyncCommon.updateHUD('ready', `AlgoSync: Not Accepted (${text.slice(0, 20)})`);
+          setTimeout(() => {
+            window.AlgoSyncCommon.updateHUD('ready', 'AlgoSync: Auto-sync Ready');
+          }, 4000);
+          return false;
+        }
+      }
+
       // Fast, targeted selectors (avoid generic 'div' to eliminate layout thrashing)
       const successBadges = document.querySelectorAll(
         '.problems_content__header__toast, .solved_completely, .verdict_accepted, ' +

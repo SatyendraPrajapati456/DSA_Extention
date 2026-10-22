@@ -10,7 +10,8 @@ const STORAGE_KEYS = {
   SETTINGS: 'algosync_settings',
   SYNC_HISTORY: 'algosync_history',
   SYNC_QUEUE: 'algosync_queue',
-  DEDUP_CACHE: 'algosync_dedup'
+  DEDUP_CACHE: 'algosync_dedup',
+  THEME: 'algosync_theme'
 };
 
 const MAX_HISTORY_ITEMS = 200;
@@ -20,6 +21,39 @@ function isChromeStorageAvailable() {
 }
 
 export class StorageManager {
+  /**
+   * Retrieves theme ('dark' or 'light')
+   */
+  static async getTheme() {
+    if (isChromeStorageAvailable()) {
+      return new Promise((resolve) => {
+        chrome.storage.local.get([STORAGE_KEYS.THEME], (result) => {
+          resolve(result[STORAGE_KEYS.THEME] || 'dark');
+        });
+      });
+    } else {
+      try {
+        return localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
+      } catch {
+        return 'dark';
+      }
+    }
+  }
+
+  /**
+   * Saves theme ('dark' or 'light')
+   */
+  static async setTheme(theme) {
+    if (isChromeStorageAvailable()) {
+      return new Promise((resolve) => {
+        chrome.storage.local.set({ [STORAGE_KEYS.THEME]: theme }, resolve);
+      });
+    } else {
+      try {
+        localStorage.setItem(STORAGE_KEYS.THEME, theme);
+      } catch {}
+    }
+  }
   /**
    * Retrieves all user settings with defaults merged
    */

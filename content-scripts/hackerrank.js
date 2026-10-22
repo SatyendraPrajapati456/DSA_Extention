@@ -95,6 +95,29 @@
       return false;
     }
 
+    // Failure Check: If HackerRank reports a failed test case or submission error, abort immediately
+    const failureSelectors = [
+      '[data-analytics="SubmissionFailure"]',
+      '.error-heading',
+      '.compile-error-message',
+      '.submission-error',
+      'div[class*="submission-failure"]',
+      'div[class*="status-error"]'
+    ];
+    for (const sel of failureSelectors) {
+      const el = document.querySelector(sel);
+      if (el) {
+        console.log('[AlgoSync] HackerRank failed submission detected, cancelling polling');
+        userSubmittedAt = 0;
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+        }
+        window.AlgoSyncCommon?.showHUD?.('Not Accepted', 'error');
+        return false;
+      }
+    }
+
     // Strategy 1: Check explicit success headers, banners, and modals
     const candidateSelectors = [
       '.congratulations-heading',
@@ -159,6 +182,17 @@
         if (tcText.includes('success') || tcText.includes('passed') || tcText.includes('✓')) {
           passedCount++;
         }
+      }
+
+      if (hasFailure) {
+        console.log('[AlgoSync] HackerRank test case failure detected, cancelling polling');
+        userSubmittedAt = 0;
+        if (pollingInterval) {
+          clearInterval(pollingInterval);
+          pollingInterval = null;
+        }
+        window.AlgoSyncCommon?.showHUD?.('Not Accepted', 'error');
+        return false;
       }
 
       if (!hasFailure && passedCount >= 1) {

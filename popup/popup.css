@@ -23,6 +23,108 @@
   --radius-lg: 14px;
 }
 
+:root[data-theme="light"],
+body.light-theme {
+  --bg-primary: #F8FAFC;
+  --bg-secondary: #EDF2F7;
+  --bg-card: #FFFFFF;
+  --border-color: rgba(203, 213, 225, 0.9);
+  --border-focus: rgba(99, 102, 241, 0.8);
+
+  --text-main: #0F172A;
+  --text-muted: #475569;
+  --text-dim: #64748B;
+}
+
+/* Theme Toggle Icons */
+.theme-icon-sun {
+  display: inline-block;
+}
+.theme-icon-moon {
+  display: none;
+}
+:root[data-theme="light"] .theme-icon-sun,
+body.light-theme .theme-icon-sun {
+  display: none;
+}
+:root[data-theme="light"] .theme-icon-moon,
+body.light-theme .theme-icon-moon {
+  display: inline-block;
+}
+
+/* Light Theme Card & Element Overrides */
+:root[data-theme="light"] .stat-box,
+body.light-theme .stat-box {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme="light"] .controls-card,
+body.light-theme .controls-card {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+:root[data-theme="light"] .status-card,
+body.light-theme .status-card {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+:root[data-theme="light"] .status-card.warning,
+body.light-theme .status-card.warning {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.35);
+}
+
+:root[data-theme="light"] .badge,
+body.light-theme .badge {
+  background: #E2E8F0;
+  color: #334155;
+}
+
+:root[data-theme="light"] .recent-item,
+body.light-theme .recent-item {
+  background: #FFFFFF;
+  border-color: #E2E8F0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+:root[data-theme="light"] .recent-item:hover,
+body.light-theme .recent-item:hover {
+  background: #F1F5F9;
+  border-color: #CBD5E1;
+}
+
+:root[data-theme="light"] .icon-btn,
+body.light-theme .icon-btn {
+  background: #FFFFFF;
+  border-color: #CBD5E1;
+  color: #475569;
+}
+
+:root[data-theme="light"] .icon-btn:hover,
+body.light-theme .icon-btn:hover {
+  background: #F1F5F9;
+  color: #0F172A;
+  border-color: var(--accent-indigo);
+}
+
+:root[data-theme="light"] .btn-secondary,
+body.light-theme .btn-secondary {
+  background: #FFFFFF;
+  color: #1E293B;
+  border-color: #CBD5E1;
+}
+
+:root[data-theme="light"] .btn-secondary:hover,
+body.light-theme .btn-secondary:hover {
+  background: #F1F5F9;
+  border-color: var(--accent-indigo);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

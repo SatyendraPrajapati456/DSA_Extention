@@ -17,6 +17,15 @@ export class SyncOrchestrator {
    * @param {Object} submission 
    */
   static async handleAcceptedSubmission(submission) {
+    if (!submission || !submission.originalCode || submission.originalCode.trim().length < 5) {
+      console.warn('[AlgoSync] Rejected submission: Missing or invalid code.');
+      return { success: false, reason: 'INVALID_CODE' };
+    }
+    if (submission.isVerifiedAccepted === false) {
+      console.warn('[AlgoSync] Rejected submission: Verdict is not verified accepted.');
+      return { success: false, reason: 'VERDICT_NOT_ACCEPTED' };
+    }
+
     const signature = `${submission.platform}_${submission.problemId || submission.title}_${submission.originalLanguage || ''}`;
     
     // Deduplication check (skip if processed within the last 30s)

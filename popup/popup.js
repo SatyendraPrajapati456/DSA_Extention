@@ -1,3 +1,5 @@
+import { StorageManager } from '../src/storage/storageManager.js';
+
 /**
  * AlgoSync Popup Logic
  */
@@ -19,6 +21,7 @@ if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  const btnToggleTheme = document.getElementById('btn-toggle-theme');
   const btnOpenOptions = document.getElementById('btn-open-options');
   const btnOpenDashboard = document.getElementById('btn-open-dashboard');
   const btnRefresh = document.getElementById('btn-refresh');
@@ -33,6 +36,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   const statRate = document.getElementById('stat-rate');
   const statProvider = document.getElementById('stat-provider');
   const recentList = document.getElementById('recent-syncs-list');
+
+  // --- THEME MANAGEMENT ---
+  let currentTheme = await StorageManager.getTheme();
+  applyTheme(currentTheme);
+
+  function applyTheme(theme) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.classList.toggle('light-theme', theme === 'light');
+  }
+
+  btnToggleTheme?.addEventListener('click', async () => {
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(nextTheme);
+    await StorageManager.setTheme(nextTheme);
+  });
 
   // Navigation to options page
   const openOptions = () => {

@@ -198,6 +198,7 @@
           clearInterval(pollingInterval);
           pollingInterval = null;
         }
+        window.AlgoSyncCommon?.showHUD?.('Not Accepted', 'error');
         return false;
       }
 
@@ -221,6 +222,21 @@
     }
 
     // Strategy 2: Direct accepted verdict badges ONLY if no status table is present (problem page sidebar widget or standalone popup)
+    const failedWidget = document.querySelector(
+      'span.verdict-rejected, span.verdict-wrong-answer, span.verdict-time-limit-exceeded, span.verdict-compilation-error, span.verdict-runtime-error, [submissionverdict="WRONG_ANSWER"], [submissionverdict="TIME_LIMIT_EXCEEDED"], [submissionverdict="COMPILATION_ERROR"]'
+    );
+    if (failedWidget) {
+      console.log('[AlgoSync] Codeforces standalone failure verdict detected, cancelling polling');
+      userSubmittedAt = 0;
+      try { sessionStorage.removeItem(CF_PENDING_KEY); } catch {}
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+      window.AlgoSyncCommon?.showHUD?.('Not Accepted', 'error');
+      return false;
+    }
+
     const verdictSpans = document.querySelectorAll(
       'span.verdict-accepted, td.verdict-cell, span[submissionverdict="OK"], td[submissionverdict="OK"]'
     );

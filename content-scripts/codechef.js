@@ -4,11 +4,12 @@
  * contests, and solution views.
  * Features:
  * - Capture-phase document click & keyboard hotkey interception (prevents React event cancellation).
- * - Automatic evaluation/running state detection from DOM to recover missed click events.
+ * - Automatic evaluation/running & result container state detection from DOM.
+ * - Targeted recognition of CodeChef's React bundle classes:
+ *   status-success, _status-success_*, m-icon__ac, _status__container_*, run-result, /viewsolution/
  * - Cross-page submission intent persistence via sessionStorage.
  * - Active high-frequency polling (350ms) for async verdict evaluation.
- * - Robust multi-selector verdict detection that ignores problem statement text and checks acceptance first.
- * - Monaco, Ace, and CodeMirror editor extraction with strict vertical line offset sorting.
+ * - Multi-editor code extraction (Monaco, Ace, CodeMirror, Textarea, Pre/Code tags).
  */
 
 (function () {
@@ -36,7 +37,7 @@
   // Dual-layer observation: MutationObserver watches dynamic DOM changes
   const observer = new MutationObserver(() => {
     attachSubmitListeners();
-    checkRunningSubmission();
+    checkRunningOrResultSubmission();
 
     const activeTime = userSubmittedAt || (getPendingSubmission()?.timestamp || 0);
     if (activeTime && (Date.now() - activeTime <= 60000)) {
@@ -57,7 +58,7 @@
       const target = e.target;
       if (!target) return;
       const btn = target.closest(
-        'button, [role="button"], a, input[type="submit"], [data-cy*="submit" i], [data-testid*="submit" i], [id*="submit" i], [class*="submit" i]'
+        'button, [role="button"], a, input[type="submit"], [data-cy*="submit" i], [data-testid*="submit" i], [id*="submit" i], [class*="submit" i], [class*="primary" i]'
       );
       if (!btn) return;
 
@@ -119,14 +120,13 @@
   }
 
   /**
-   * Auto-detects if a submission is actively running/evaluating in the DOM,
+   * Auto-detects if a submission is actively running or a submission result has appeared in the DOM,
    * activating userSubmittedAt even if button click was intercepted or missed.
    */
-  function checkRunningSubmission() {
-    if (userSubmittedAt && Date.now() - userSubmittedAt <= 60000) return;
-
+  function checkRunningOrResultSubmission() {
+    // Check for running indicators
     const runningIndicators = document.querySelectorAll(
-      '[class*="running" i], [class*="evaluating" i], [class*="judging" i], [class*="in-queue" i], [class*="pending" i], [class*="compiling" i], [class*="spinner" i], div[role="status"]'
+      '[class*="running" i], [class*="evaluating" i], [class*="judging" i], [class*="in-queue" i], [class*="pending" i], [class*="compiling" i], [class*="spinner" i], [class*="status-loading"], div[role="status"]'
     );
     for (const el of runningIndicators) {
       if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description')) continue;
@@ -140,10 +140,22 @@
         text.includes('testing') ||
         text.includes('submitting')
       ) {
-        console.log('[AlgoSync] Active CodeChef evaluation in progress detected from DOM:', text);
-        savePendingSubmission();
-        break;
+        if (!userSubmittedAt || Date.now() - userSubmittedAt > 60000) {
+          console.log('[AlgoSync] Active CodeChef evaluation in progress detected from DOM:', text);
+          savePendingSubmission();
+        }
+        return;
       }
+    }
+
+    // Check for success result indicators that may appear directly
+    const successIndicators = document.querySelectorAll(
+      '[class*="status-success"], [class*="_status-success_"], [class*="m-icon__ac"], i.m-icon__ac'
+    );
+    if (successIndicators.length > 0 && (!userSubmittedAt || Date.now() - userSubmittedAt > 60000)) {
+      console.log('[AlgoSync] Active CodeChef success result container detected in DOM');
+      userSubmittedAt = Date.now();
+      startPollingForVerdict();
     }
   }
 
@@ -211,127 +223,156 @@
 
   /**
    * Checks the DOM for accepted verdicts across modern IDE results and classic views.
-   * Prioritizes accepted detection and skips problem description text to prevent false aborts.
+   * Matches both CodeChef React bundle classes (_status-success_*, m-icon__ac) and text verdicts.
    */
   function checkCodeChefVerdict() {
-    if (!userSubmittedAt) {
-      userSubmittedAt = getPendingSubmission()?.timestamp || 0;
-    }
-
-    const now = Date.now();
-    if (!userSubmittedAt || (now - userSubmittedAt > 60000)) {
-      if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-      }
-      return false;
-    }
-
-    // 1. Check if the evaluation is still in progress (running/evaluating/in-queue)
-    const runningEls = document.querySelectorAll(
-      '[class*="running" i], [class*="evaluating" i], [class*="judging" i], [class*="in-queue" i], [class*="pending" i], [class*="compiling" i]'
-    );
-    for (const el of runningEls) {
-      if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description')) continue;
-      const rText = (el.innerText || el.textContent || '').trim().toLowerCase();
-      if (rText.includes('running') || rText.includes('evaluating') || rText.includes('judging') || rText.includes('in queue') || rText.includes('compiling')) {
-        // Still evaluating, wait for completion
-        return false;
-      }
-    }
-
-    // 2. Select candidate elements that may contain verdict text or status badges
-    const candidateSelectors = [
-      'div[class*="submission-status"]',
-      'div[class*="submission_status"]',
-      'div[class*="correctAnswer"]',
-      'div[class*="correct_answer"]',
-      'div[class*="status-correct"]',
-      'div[class*="solution-status"]',
-      'span.status-label',
-      '.verdict-label',
-      '[class*="verdict"]',
-      '[class*="result"]',
-      '[class*="status"]',
-      '[data-cy*="verdict"]',
-      '[data-cy*="status"]',
-      '[data-testid*="verdict"]',
-      '[data-testid*="status"]',
-      '.ant-tag-success',
-      '.ant-alert-success',
-      'div[role="alert"]',
-      'div[role="dialog"]',
-      '.ant-modal-content',
-      '.ant-modal-body',
-      'div[class*="console"]',
-      'div[class*="drawer"]',
-      'table[class*="submission"] tr:first-child',
-      'table[class*="status"] tr:first-child',
-      'td.status',
-      'h1, h2, h3, h4, h5, p, span, strong'
-    ];
-
-    const verdictElements = document.querySelectorAll(candidateSelectors.join(', '));
-
-    // 3. FIRST PASS: Scan candidate elements for Accepted / Correct Answer
-    for (const el of verdictElements) {
-      // Strictly skip elements inside problem statement, comments, and code editor
-      if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description, div[class*="statement"], .discussions, .comment, #comments, .monaco-editor, .ace_editor, .CodeMirror')) {
-        continue;
+    try {
+      if (!userSubmittedAt) {
+        userSubmittedAt = getPendingSubmission()?.timestamp || 0;
       }
 
-      const text = (el.innerText || el.textContent || '').trim();
-      if (text.length > 300 && !/correct\s*answer/i.test(text.slice(0, 60))) continue;
-
-      const titleAttr = (el.getAttribute('title') || el.getAttribute('data-tooltip') || '').trim();
-      const statusAttr = (el.getAttribute('status') || '').trim();
-
-      // Check for accepted verdict patterns
-      const isAccepted =
-        /correct\s*answer/i.test(text) ||
-        /(?:^|\b)(?:accepted)\b/i.test(text) ||
-        /100\s*\/\s*100/i.test(text) ||
-        /100\s*pts/i.test(text) ||
-        /score:\s*100/i.test(text) ||
-        /passed\s*all\s*test\s*cases/i.test(text) ||
-        titleAttr.toLowerCase() === 'accepted' ||
-        statusAttr.toLowerCase() === 'ac';
-
-      // Ensure no negative qualifiers like "not correct answer" or "partially correct"
-      const isNegative = /wrong|fail|error|limit|tle|runtime|partially/i.test(text);
-
-      if (isAccepted && !isNegative) {
-        handleAccepted(el);
-        return true;
-      }
-    }
-
-    // 4. SECOND PASS: Check for confirmed failure in active result containers only
-    const failureContainers = document.querySelectorAll(
-      'div[class*="submission-status"], div[class*="submission_status"], [class*="verdict"], [class*="result"], div[role="alert"], .ant-modal-body, .ant-alert-error, table[class*="submission"] tr:first-child td.status'
-    );
-    for (const el of failureContainers) {
-      if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description')) continue;
-      const text = (el.innerText || el.textContent || '').trim();
-      const isFailed =
-        /wrong\s*answer/i.test(text) ||
-        /time\s*limit\s*exceeded/i.test(text) ||
-        /runtime\s*error/i.test(text) ||
-        /compilation\s*error/i.test(text);
-
-      if (isFailed) {
-        console.log('[AlgoSync] CodeChef submission confirmed failed verdict:', text);
-        userSubmittedAt = 0;
-        try { sessionStorage.removeItem(CC_PENDING_KEY); } catch {}
+      const now = Date.now();
+      if (!userSubmittedAt || (now - userSubmittedAt > 60000)) {
         if (pollingInterval) {
           clearInterval(pollingInterval);
           pollingInterval = null;
         }
         return false;
       }
-    }
 
-    return false;
+      // 1. Check if the evaluation is still in progress (running/evaluating/in-queue)
+      const runningEls = document.querySelectorAll(
+        '[class*="running" i], [class*="evaluating" i], [class*="judging" i], [class*="in-queue" i], [class*="pending" i], [class*="compiling" i], [class*="status-loading"]'
+      );
+      for (const el of runningEls) {
+        if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description')) continue;
+        const rText = (el.innerText || el.textContent || '').trim().toLowerCase();
+        if (
+          rText.includes('running') ||
+          rText.includes('evaluating') ||
+          rText.includes('judging') ||
+          rText.includes('in queue') ||
+          rText.includes('compiling') ||
+          el.className.includes('status-loading')
+        ) {
+          return false; // Still evaluating, wait
+        }
+      }
+
+      // 2. Select candidate elements across modern CodeChef React components and classic pages
+      const candidateSelectors = [
+        '[class*="status-success"]',
+        '[class*="_status-success_"]',
+        '[class*="m-icon__ac"]',
+        'i.m-icon__ac',
+        '[class*="run-result"]',
+        'div[class*="submission-status"]',
+        'div[class*="submission_status"]',
+        'div[class*="correctAnswer"]',
+        'div[class*="correct_answer"]',
+        'div[class*="status-correct"]',
+        'div[class*="solution-status"]',
+        'span.status-label',
+        '.verdict-label',
+        '[class*="status__container"]',
+        '[class*="status__value"]',
+        '[class*="verdict"]',
+        '[class*="result"]',
+        '[class*="status"]',
+        '[data-cy*="verdict"]',
+        '[data-cy*="status"]',
+        '[data-testid*="verdict"]',
+        '[data-testid*="status"]',
+        '.ant-tag-success',
+        '.ant-alert-success',
+        'div[role="alert"]',
+        'div[role="dialog"]',
+        '.ant-modal-content',
+        '.ant-modal-body',
+        'div[class*="console"]',
+        'div[class*="drawer"]',
+        'table[class*="submission"] tr:first-child',
+        'table[class*="status"] tr:first-child',
+        'td.status',
+        'h1, h2, h3, h4, h5, p, span, strong'
+      ];
+
+      const verdictElements = document.querySelectorAll(candidateSelectors.join(', '));
+
+      // 3. FIRST PASS: Scan candidate elements for Accepted / Correct Answer
+      for (const el of verdictElements) {
+        // Strictly skip elements inside problem statement, comments, and code editor
+        if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description, div[class*="statement"], .discussions, .comment, #comments, .monaco-editor, .ace_editor, .CodeMirror')) {
+          continue;
+        }
+
+        const className = String(el.className || '');
+        const text = (el.innerText || el.textContent || '').trim();
+        const titleAttr = (el.getAttribute('title') || el.getAttribute('data-tooltip') || '').trim();
+        const statusAttr = (el.getAttribute('status') || '').trim();
+
+        // 3a. Direct CodeChef React class match for success
+        const isReactSuccessClass =
+          className.includes('status-success') ||
+          className.includes('m-icon__ac') ||
+          className.includes('correctAnswer') ||
+          className.includes('status-correct');
+
+        // 3b. Verdict text patterns
+        const isAcceptedText =
+          /correct\s*answer/i.test(text) ||
+          /(?:^|\b)(?:accepted)\b/i.test(text) ||
+          /100\s*\/\s*100/i.test(text) ||
+          /100\s*pts/i.test(text) ||
+          /score:\s*100/i.test(text) ||
+          /passed\s*all\s*test\s*cases/i.test(text) ||
+          titleAttr.toLowerCase() === 'accepted' ||
+          statusAttr.toLowerCase() === 'ac';
+
+        // Ensure no negative qualifiers like "not correct answer" or "partially correct"
+        const isNegative = /wrong|fail|error|limit|tle|runtime|partially/i.test(text) || className.includes('status-wrong') || className.includes('status-error');
+
+        if ((isReactSuccessClass || isAcceptedText) && !isNegative) {
+          handleAccepted(el);
+          return true;
+        }
+      }
+
+      // 4. SECOND PASS: Check for confirmed failure in active result containers only
+      const failureContainers = document.querySelectorAll(
+        'div[class*="submission-status"], div[class*="submission_status"], [class*="status-wrong"], [class*="status-error"], [class*="status-time"], [class*="status-compile"], [class*="verdict"], [class*="result"], div[role="alert"], .ant-modal-body, .ant-alert-error, table[class*="submission"] tr:first-child td.status'
+      );
+      for (const el of failureContainers) {
+        if (el.closest('.problem-statement, #problem-statement, .problem-description, #problem-description')) continue;
+        const text = (el.innerText || el.textContent || '').trim();
+        const cls = String(el.className || '');
+        const isFailed =
+          cls.includes('status-wrong') ||
+          cls.includes('status-error') ||
+          cls.includes('status-time') ||
+          cls.includes('status-compile') ||
+          /wrong\s*answer/i.test(text) ||
+          /time\s*limit\s*exceeded/i.test(text) ||
+          /runtime\s*error/i.test(text) ||
+          /compilation\s*error/i.test(text);
+
+        if (isFailed) {
+          console.log('[AlgoSync] CodeChef submission confirmed failed verdict:', text || cls);
+          userSubmittedAt = 0;
+          try { sessionStorage.removeItem(CC_PENDING_KEY); } catch {}
+          if (pollingInterval) {
+            clearInterval(pollingInterval);
+            pollingInterval = null;
+          }
+          return false;
+        }
+      }
+
+      return false;
+    } catch (err) {
+      console.error('[AlgoSync] Error during CodeChef verdict check:', err);
+      return false;
+    }
   }
 
   /**
@@ -453,7 +494,7 @@
   function extractCode() {
     // 1. Static solution tag (on viewsolution or submission detail modal)
     const preEl = document.querySelector(
-      '.solution-code pre, pre.prettyprint, pre#solution, pre.code, code.hljs'
+      '.solution-code pre, pre.prettyprint, pre#solution, pre.code, code.hljs, [class*="solution"] pre, [class*="code-box"] pre'
     );
     if (preEl && preEl.textContent && preEl.textContent.trim().length > 10) {
       return preEl.textContent.trim();

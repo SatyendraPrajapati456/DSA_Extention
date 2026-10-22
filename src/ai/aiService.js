@@ -9,6 +9,10 @@ import { AI_PROVIDERS } from '../constants/defaultSettings.js';
 import { normalizeTopics } from '../constants/topics.js';
 
 export class AIService {
+  // Proven working model & key cache to skip candidate failovers and eliminate generation delay
+  static activeWorkingModel = null;
+  static activeWorkingKey = null;
+
   /**
    * Generates structured problem documentation with multi-key rotation and model fallback
    * @param {Object} options 
@@ -27,6 +31,43 @@ export class AIService {
 
     const systemPrompt = this.buildSystemPrompt();
     const userPrompt = this.buildUserPrompt(problem, targetLanguages);
+
+    // Fast-Path: If a proven working model and key succeeded previously, use it immediately!
+    if (this.activeWorkingModel && this.activeWorkingKey && apiKeys.includes(this.activeWorkingKey)) {
+      try {
+        console.log(`[AlgoSync] AI Fast-Path: Calling proven model "${this.activeWorkingModel}" directly...`);
+        let fastRaw = '';
+        if (provider === AI_PROVIDERS.GEMINI) {
+          fastRaw = await this.callSingleGemini({
+            apiKey: this.activeWorkingKey,
+            model: this.activeWorkingModel,
+            temperature,
+            systemPrompt,
+            userPrompt,
+            timeoutMs: 15000
+          });
+        } else {
+          fastRaw = await this.callSingleOpenAI({
+            apiKey: this.activeWorkingKey,
+            model: this.activeWorkingModel,
+            temperature,
+            systemPrompt,
+            userPrompt,
+            endpoint: provider === AI_PROVIDERS.GROQ ? 'https://api.groq.com/openai/v1' : (customEndpoint || 'https://api.openai.com/v1'),
+            timeoutMs: 15000
+          });
+        }
+        if (fastRaw && fastRaw.trim()) {
+          console.log(`[AlgoSync] AI Fast-Path succeeded in record time!`);
+          return this.parseAndValidateResponse(fastRaw, problem, targetLanguages);
+        }
+      } catch (fastErr) {
+        console.warn(`[AlgoSync] Fast-Path model "${this.activeWorkingModel}" unavailable, falling back to rotation:`, fastErr.message);
+        this.activeWorkingModel = null;
+        this.activeWorkingKey = null;
+      }
+    }
+
     const candidateModels = this.getModelCandidates(provider, model);
 
     let lastError = null;
@@ -93,6 +134,8 @@ export class AIService {
 
           if (rawResponse && rawResponse.trim()) {
             console.log(`[AlgoSync] AI generation succeeded using model "${currentModel}"!`);
+            this.activeWorkingModel = currentModel;
+            this.activeWorkingKey = currentKey;
             const parsed = this.parseAndValidateResponse(rawResponse, problem, targetLanguages);
             return parsed;
           }
@@ -216,9 +259,9 @@ export class AIService {
   }
 
   /**
-   * Calls Google Gemini API for a single request
+   * Calls Google Gemini API for a single request with high-speed timeout
    */
-  static async callSingleGemini({ apiKey, model, temperature, systemPrompt, userPrompt }) {
+  static async callSingleGemini({ apiKey, model, temperature, systemPrompt, userPrompt, timeoutMs = 15000 }) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const requestBody = {
@@ -233,37 +276,51 @@ export class AIService {
       ],
       generationConfig: {
         temperature: temperature || 0.2,
-        responseMimeType: 'application/json'
+        responseMimeType: 'application/json',
+        maxOutputTokens: 3072
       }
     };
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(requestBody)
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const errMsg = errData.error?.message || response.statusText;
-      throw new Error(`Gemini API Error (${response.status}): ${errMsg}`);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error?.message || response.statusText;
+        throw new Error(`Gemini API Error (${response.status}): ${errMsg}`);
+      }
+
+      const data = await response.json();
+      const candidate = data.candidates?.[0];
+      const text = candidate?.content?.parts?.[0]?.text;
+
+      if (!text) {
+        throw new Error('Gemini API returned an empty response.');
+      }
+
+      return text;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error(`Gemini request timed out after ${timeoutMs / 1000}s on model "${model}".`);
+      }
+      throw err;
     }
-
-    const data = await response.json();
-    const candidate = data.candidates?.[0];
-    const text = candidate?.content?.parts?.[0]?.text;
-
-    if (!text) {
-      throw new Error('Gemini API returned an empty response.');
-    }
-
-    return text;
   }
 
   /**
-   * Calls OpenAI / Groq / OpenAI-compatible endpoint for a single request
+   * Calls OpenAI / Groq / OpenAI-compatible endpoint for a single request with high-speed timeout
    */
-  static async callSingleOpenAI({ apiKey, model, temperature, systemPrompt, userPrompt, endpoint }) {
+  static async callSingleOpenAI({ apiKey, model, temperature, systemPrompt, userPrompt, endpoint, timeoutMs = 15000 }) {
     const baseEndpoint = endpoint.replace(/\/+$/, '');
     const url = `${baseEndpoint}/chat/completions`;
 
@@ -282,26 +339,39 @@ export class AIService {
       headers['Authorization'] = `Bearer ${apiKey}`;
     }
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(requestBody)
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      const errMsg = errData.error?.message || response.statusText;
-      throw new Error(`AI Provider API Error (${response.status}): ${errMsg}`);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        const errMsg = errData.error?.message || response.statusText;
+        throw new Error(`AI Provider API Error (${response.status}): ${errMsg}`);
+      }
+
+      const data = await response.json();
+      const text = data.choices?.[0]?.message?.content;
+
+      if (!text) {
+        throw new Error('AI Provider returned an empty response.');
+      }
+
+      return text;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error(`AI Provider request timed out after ${timeoutMs / 1000}s on model "${model}".`);
+      }
+      throw err;
     }
-
-    const data = await response.json();
-    const text = data.choices?.[0]?.message?.content;
-
-    if (!text) {
-      throw new Error('AI Provider returned an empty response.');
-    }
-
-    return text;
   }
 
   /**
@@ -444,17 +514,18 @@ fn main() {
    * Builds the system instruction prompt
    */
   static buildSystemPrompt() {
-    return `You are an elite Data Structures and Algorithms (DSA) educator, competitive programmer, and multilingual software architect.
-Your task is to analyze an accepted DSA problem submission and generate a comprehensive, highly accurate, structured documentation object in valid JSON format.
+    return `You are an elite Data Structures and Algorithms (DSA) educator and software architect.
+Your task is to analyze an accepted DSA problem submission and generate a concise, highly accurate, structured documentation object in valid JSON format.
 
 CRITICAL RULES:
 1. Examine the user's ACTUAL accepted code and the problem description. Explain the REAL algorithm used in the user's submission, not an assumed or imaginary one.
-2. If the user's submission uses a brute-force approach, accurately analyze it as brute-force with its true time/space complexity.
-3. For language implementations (Java, Python, C++, Rust):
+2. Be concise, direct, and algorithmic. Avoid conversational padding or filler text.
+3. If the user's submission uses a brute-force approach, accurately analyze it as brute-force with its true time/space complexity.
+4. For language implementations (Java, Python, C++, Rust):
    - Provide complete, compilable, idiomatic code compatible with the platform's expected interface (e.g., class Solution for LeetCode, standalone I/O for Codeforces/CodeChef where applicable).
-   - If the user already provided accepted code in that language, provide the other requested languages cleanly and idiomatically.
+   - If the user already provided accepted code in that language, keep that language faithful to their submission.
    - Do NOT emit markdown placeholders or truncated "TODO" comments.
-4. Output MUST BE strictly valid JSON without preamble, markdown wrapping, or commentary outside the JSON.`;
+5. Output MUST BE strictly valid JSON without preamble, markdown wrapping, or commentary outside the JSON.`;
   }
 
   /**

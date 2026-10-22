@@ -24,6 +24,10 @@ if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.id) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Theme Toggle Elements
+  const btnToggleTheme = document.getElementById('btn-toggle-theme');
+  const themeBtnText = document.getElementById('theme-btn-text');
+
   // Navigation elements
   const navItems = document.querySelectorAll('.nav-item');
   const tabPanes = document.querySelectorAll('.tab-pane');
@@ -195,6 +199,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   let currentSettings = null;
   let allHistory = [];
   let activePreviewFormat = 'md';
+
+  // --- THEME MANAGEMENT ---
+  let currentTheme = await StorageManager.getTheme();
+  applyTheme(currentTheme);
+
+  function applyTheme(theme) {
+    currentTheme = theme;
+    document.documentElement.setAttribute('data-theme', theme);
+    document.body.classList.toggle('light-theme', theme === 'light');
+    if (themeBtnText) {
+      themeBtnText.textContent = theme === 'light' ? 'Dark Mode' : 'Light Mode';
+    }
+  }
+
+  btnToggleTheme?.addEventListener('click', async () => {
+    const nextTheme = currentTheme === 'light' ? 'dark' : 'light';
+    applyTheme(nextTheme);
+    await StorageManager.setTheme(nextTheme);
+    showToast(`Switched to ${nextTheme === 'light' ? 'Light' : 'Dark'} mode!`, 'success');
+  });
 
   // Initialize
   await loadSettings();
@@ -373,11 +397,28 @@ document.addEventListener('DOMContentLoaded', async () => {
       dashActivityList.innerHTML = allHistory.slice(0, 6).map(item => {
         const platformClass = `platform-${(item.platform || 'leetcode').toLowerCase()}`;
         const timeAgo = formatTimeAgo(item.timestamp);
-        const statusHtml = item.status === 'SUCCESS' 
-          ? `<a href="${item.commitUrl || '#'}" target="_blank" class="status-indicator-tag active">Uploaded ↗</a>`
-          : (item.status === 'FAILED'
-            ? `<span class="status-indicator-tag" style="background: rgba(239, 68, 68, 0.15); color: #F87171;">Failed</span>`
-            : `<span class="status-indicator-tag" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24;">${item.status}</span>`);
+        let statusHtml = '';
+        if (item.status === 'SUCCESS') {
+          statusHtml = `<a href="${item.commitUrl || '#'}" target="_blank" class="status-indicator-tag active">Uploaded ↗</a>`;
+        } else if (item.status === 'FAILED') {
+          statusHtml = `<span class="status-indicator-tag" style="background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.3);">Failed</span>`;
+        } else if (item.status === 'GENERATING') {
+          statusHtml = `
+            <span class="status-indicator-tag generating">
+              <svg class="spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="10"></circle></svg>
+              Generating .md
+            </span>
+          `;
+        } else if (item.status === 'UPLOADING') {
+          statusHtml = `
+            <span class="status-indicator-tag uploading">
+              <svg class="spin" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="10"></circle></svg>
+              Uploading
+            </span>
+          `;
+        } else {
+          statusHtml = `<span class="status-indicator-tag pending"><span class="pulse-dot"></span> Queued</span>`;
+        }
 
         return `
           <div class="activity-item">
@@ -1272,7 +1313,10 @@ impl Solution {
     const filtered = allHistory.filter(item => {
       const matchSearch = !search || (item.problemTitle || '').toLowerCase().includes(search);
       const matchPlat = !platFilter || item.platform === platFilter;
-      const matchStatus = !statusFilter || item.status === statusFilter;
+      const matchStatus = !statusFilter || 
+        (statusFilter === 'GENERATING' 
+          ? ['GENERATING', 'PENDING', 'UPLOADING'].includes(item.status) 
+          : item.status === statusFilter);
       return matchSearch && matchPlat && matchStatus;
     });
 
@@ -1291,9 +1335,30 @@ impl Solution {
       const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleString() : 'N/A';
       let statusChip = '';
       if (item.status === 'SUCCESS') {
-        statusChip = '<span class="status-indicator-tag active">Success</span>';
+        statusChip = '<span class="status-indicator-tag active">Success ✓</span>';
       } else if (item.status === 'FAILED') {
-        statusChip = `<span class="status-indicator-tag" style="background: rgba(239, 68, 68, 0.15); color: #F87171;">Failed</span>`;
+        statusChip = `<span class="status-indicator-tag" style="background: rgba(239, 68, 68, 0.15); color: #F87171; border: 1px solid rgba(239, 68, 68, 0.3);">Failed</span>`;
+      } else if (item.status === 'GENERATING') {
+        statusChip = `
+          <span class="status-indicator-tag generating">
+            <svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="10"></circle></svg>
+            Generating .md...
+          </span>
+        `;
+      } else if (item.status === 'UPLOADING') {
+        statusChip = `
+          <span class="status-indicator-tag uploading">
+            <svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10" stroke-dasharray="32" stroke-dashoffset="10"></circle></svg>
+            Uploading to GitHub...
+          </span>
+        `;
+      } else if (item.status === 'PENDING') {
+        statusChip = `
+          <span class="status-indicator-tag pending">
+            <span class="pulse-dot"></span>
+            Queued
+          </span>
+        `;
       } else {
         statusChip = `<span class="status-indicator-tag" style="background: rgba(245, 158, 11, 0.15); color: #FBBF24;">${item.status}</span>`;
       }
@@ -1463,4 +1528,38 @@ impl Solution {
       setTimeout(() => toast.remove(), 300);
     }, 4000);
   }
+
+  // --- REAL-TIME LIVE STORAGE SYNC ---
+  // Automatically reflect background generation/uploading state without manual refresh
+  if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName === 'local' && changes.algosync_history) {
+        console.log('[AlgoSync Options] Real-time storage update detected!');
+        allHistory = changes.algosync_history.newValue || [];
+        renderHistoryTable();
+        renderDashboard();
+      }
+    });
+  }
+
+  // Fallback for web preview storage events
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'algosync_history') {
+      try {
+        allHistory = JSON.parse(e.newValue || '[]');
+        renderHistoryTable();
+        renderDashboard();
+      } catch {}
+    }
+  });
+
+  // Periodic polling for active background generation/uploading tasks
+  setInterval(async () => {
+    const hasActiveTask = allHistory.some(h => ['PENDING', 'GENERATING', 'UPLOADING'].includes(h.status));
+    if (hasActiveTask) {
+      allHistory = await StorageManager.getHistory();
+      renderHistoryTable();
+      renderDashboard();
+    }
+  }, 1200);
 });
