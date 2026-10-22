@@ -179,9 +179,101 @@
   }
 
   /**
+   * Extracts contest and challenge slugs from HackerRank URL.
+   */
+  function getHackerRankSlugs() {
+    const pathname = window.location.pathname;
+    const contestMatch = pathname.match(/\/contests\/([a-zA-Z0-9-_]+)\/challenges\/([a-zA-Z0-9-_]+)/);
+    if (contestMatch) {
+      return { contestSlug: contestMatch[1], challengeSlug: contestMatch[2] };
+    }
+    const challengeMatch = pathname.match(/\/challenges\/([a-zA-Z0-9-_]+)/);
+    if (challengeMatch) {
+      return { contestSlug: 'master', challengeSlug: challengeMatch[1] };
+    }
+    return { contestSlug: 'master', challengeSlug: '' };
+  }
+
+  /**
+   * Fetches official challenge details directly from HackerRank REST API.
+   * Provides pristine description without MathJax SVG and CSS artifacts.
+   */
+  async function fetchChallengeDetails(contestSlug, challengeSlug) {
+    if (!challengeSlug) return null;
+    const contest = contestSlug || 'master';
+    try {
+      const resp = await fetch(`/rest/contests/${contest}/challenges/${challengeSlug}`, { credentials: 'include' });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      return data?.model || null;
+    } catch (e) {
+      console.warn('[AlgoSync] Failed to fetch HackerRank challenge details via REST:', e);
+      return null;
+    }
+  }
+
+  /**
+   * Formats challenge description from HackerRank API model into clean, readable text.
+   */
+  function formatDescriptionFromModel(model) {
+    if (!model) return '';
+    const parts = [];
+    if (model.problem_statement) {
+      parts.push(window.AlgoSyncCommon.cleanHtmlToText(model.problem_statement));
+    }
+    if (model.input_format) {
+      parts.push('Input Format:\n' + window.AlgoSyncCommon.cleanHtmlToText(model.input_format));
+    }
+    if (model.constraints) {
+      parts.push('Constraints:\n' + window.AlgoSyncCommon.cleanHtmlToText(model.constraints));
+    }
+    if (model.output_format) {
+      parts.push('Output Format:\n' + window.AlgoSyncCommon.cleanHtmlToText(model.output_format));
+    }
+    return parts.filter(Boolean).join('\n\n').trim();
+  }
+
+  /**
+   * Fetches latest authentic user submission directly from HackerRank REST API.
+   * Returns exact un-scrambled, un-virtualized source code and language.
+   */
+  async function fetchLatestSubmission(contestSlug, challengeSlug) {
+    if (!challengeSlug) return null;
+    const contest = contestSlug || 'master';
+    try {
+      const listUrl = `/rest/contests/${contest}/challenges/${challengeSlug}/submissions/?offset=0&limit=10`;
+      const resp = await fetch(listUrl, { credentials: 'include' });
+      if (!resp.ok) return null;
+      const data = await resp.json();
+      const models = data?.models;
+      if (!Array.isArray(models) || models.length === 0) return null;
+
+      // Find accepted submission or most recent submission
+      const sub = models.find(m => m.status === 'Accepted' || m.status === 'accepted' || m.score === 1 || m.score > 0) || models[0];
+      if (!sub || !sub.id) return null;
+
+      const detailUrl = `/rest/contests/${contest}/challenges/${challengeSlug}/submissions/${sub.id}`;
+      const detResp = await fetch(detailUrl, { credentials: 'include' });
+      if (!detResp.ok) return null;
+      const detData = await detResp.json();
+      const detModel = detData?.model;
+      if (detModel && detModel.code && detModel.code.trim().length > 10) {
+        return {
+          code: detModel.code.trim(),
+          language: detModel.language || cleanLanguageName(sub.language || ''),
+          id: sub.id
+        };
+      }
+    } catch (e) {
+      console.warn('[AlgoSync] Failed to fetch latest HackerRank submission via REST:', e);
+    }
+    return null;
+  }
+
+  /**
    * Handles the accepted verdict, extracts all problem metadata, and triggers sync.
    */
-  function handleAccepted() {
+  async function handleAccepted() {
     const title = extractTitle();
     const slug = title.toLowerCase().replace(/[^a-z0-9]/g, '-');
     const now = Date.now();
@@ -203,9 +295,31 @@
     console.log('[AlgoSync] Verified HackerRank Accepted Submission Detected! Extracting data for:', title);
 
     const url = window.location.href.split('?')[0];
-    const description = extractDescription();
-    const originalCode = extractCode();
-    const originalLanguage = extractLanguage(originalCode);
+    const { contestSlug, challengeSlug } = getHackerRankSlugs();
+
+    // 1. Fetch clean challenge description from official REST API model if available
+    const challengeModel = await fetchChallengeDetails(contestSlug, challengeSlug);
+    let description = formatDescriptionFromModel(challengeModel);
+    if (!description || description.length < 20) {
+      description = extractDescription();
+    }
+
+    // 2. Fetch authentic source code and language from HackerRank REST API
+    let originalCode = '';
+    let originalLanguage = '';
+    const subData = await fetchLatestSubmission(contestSlug, challengeSlug);
+    if (subData && subData.code && subData.code.trim().length > 10) {
+      originalCode = subData.code.trim();
+      originalLanguage = cleanLanguageName(subData.language || '');
+    }
+
+    // 3. Fallbacks if REST API was unavailable
+    if (!originalCode) {
+      originalCode = extractCode();
+    }
+    if (!originalLanguage) {
+      originalLanguage = extractLanguage(originalCode);
+    }
 
     const submissionData = {
       platform: 'HackerRank',
@@ -297,36 +411,42 @@
   }
 
   /**
-   * Extracts code across Monaco, Ace, CodeMirror, review pre tags, and hidden textareas.
+   * Extracts code across review pre tags, Monaco (sorted by top), Ace, CodeMirror, and textareas.
    */
   function extractCode() {
-    // 1. Monaco Editor (Modern HackerRank UI)
-    const monacoLines = document.querySelectorAll('.monaco-editor .view-lines .view-line');
-    if (monacoLines && monacoLines.length > 0) {
-      const code = Array.from(monacoLines).map(l => l.textContent || '').join('\n').trim();
-      if (code) return code;
+    // 1. Submission review tab / pre tags (most authentic full static code on page)
+    const preCode = document.querySelector(
+      '.submission-code pre, pre.code, pre#code, .submissions-details pre, .challenge-submission-code pre, code.hljs'
+    );
+    if (preCode && preCode.textContent && preCode.textContent.trim().length > 10) {
+      return preCode.textContent.trim();
     }
 
-    // 2. Ace Editor (Classic HackerRank UI)
+    // 2. Monaco Editor (sorted by style.top to avoid scrambled lines)
+    if (window.AlgoSyncCommon?.extractCodeFromMonaco) {
+      const monacoCode = window.AlgoSyncCommon.extractCodeFromMonaco(document);
+      if (monacoCode && monacoCode.length > 10) return monacoCode;
+    }
+
+    // 3. Ace Editor (Classic HackerRank UI, sorted by top offset)
     const aceLines = document.querySelectorAll(
       '.ace_editor .ace_text-layer .ace_line, .ace_editor .ace_line'
     );
     if (aceLines && aceLines.length > 0) {
-      const code = Array.from(aceLines).map(l => l.textContent || '').join('\n').trim();
-      if (code) return code;
+      const sortedAce = Array.from(aceLines).sort((a, b) => {
+        const topA = parseFloat(a.style.top || '0');
+        const topB = parseFloat(b.style.top || '0');
+        return topA - topB;
+      });
+      const code = sortedAce.map(l => l.textContent || '').join('\n').trim();
+      if (code && code.length > 10) return code;
     }
 
-    // 3. CodeMirror fallback
+    // 4. CodeMirror fallback
     const cmLines = document.querySelectorAll('.CodeMirror-code pre, .CodeMirror-line');
     if (cmLines && cmLines.length > 0) {
       const code = Array.from(cmLines).map(l => l.textContent || '').join('\n').trim();
-      if (code) return code;
-    }
-
-    // 4. Submission review tab / pre tags
-    const preCode = document.querySelector('.submission-code pre, pre.code, pre#code, code.hljs');
-    if (preCode && preCode.textContent && preCode.textContent.trim().length > 10) {
-      return preCode.textContent.trim();
+      if (code && code.length > 10) return code;
     }
 
     // 5. Form textareas or hidden code inputs

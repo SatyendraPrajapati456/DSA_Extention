@@ -154,7 +154,11 @@
   }
 
   function extractCode() {
-    // Try to get Monaco editor lines from DOM
+    // Try to get Monaco editor lines from DOM (sorted by vertical offset)
+    if (window.AlgoSyncCommon?.extractCodeFromMonaco) {
+      const monacoCode = window.AlgoSyncCommon.extractCodeFromMonaco(document);
+      if (monacoCode && monacoCode.length > 10) return monacoCode;
+    }
     const lineElements = document.querySelectorAll('.monaco-editor .view-lines .view-line');
     if (lineElements && lineElements.length > 0) {
       const lines = Array.from(lineElements).map(el => el.textContent || el.innerText || '');

@@ -125,19 +125,72 @@ window.AlgoSyncCommon = {
   },
 
   /**
-   * Cleans HTML markup into readable plain text for problem descriptions
+   * Cleans HTML markup into readable plain text for problem descriptions.
+   * Strips all stylesheets, non-content tags, converts MathJax TeX formulas,
+   * formats lists and paragraphs, and preserves mathematical symbols.
    */
   cleanHtmlToText(html) {
     if (!html) return '';
-    const temp = document.createElement('div');
-    temp.innerHTML = html;
-    
-    // Replace breaks and paragraphs with newlines
-    temp.querySelectorAll('br').forEach(br => br.replaceWith('\n'));
-    temp.querySelectorAll('p').forEach(p => p.after('\n\n'));
-    temp.querySelectorAll('li').forEach(li => li.before('• '));
 
-    return (temp.textContent || temp.innerText || '').trim();
+    // 1. Strip <style> blocks completely (e.g. HackerRank MathJax_SVG_styles CSS)
+    let cleaned = html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+
+    // 2. Preserve MathJax scripts to escaped text before stripping scripts
+    cleaned = cleaned.replace(/<script\b[^>]*type=["']math\/(?:tex|mml)["'][^>]*>([\s\S]*?)<\/script>/gi, (match, p1) => {
+      return ' ' + p1.replace(/</g, '&lt;').replace(/>/g, '&gt;') + ' ';
+    });
+
+    // 3. Remove non-content tags: other scripts, svg paths, iframes, noscripts
+    cleaned = cleaned.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '');
+    cleaned = cleaned.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '');
+    cleaned = cleaned.replace(/<iframe\b[^>]*>[\s\S]*?<\/iframe>/gi, '');
+    cleaned = cleaned.replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, '');
+
+    // 4. Formatting replacements
+    cleaned = cleaned.replace(/<br\s*\/?>/gi, '\n');
+    cleaned = cleaned.replace(/<\/(p|div|h[1-6]|tr|hr)>/gi, '\n\n');
+    cleaned = cleaned.replace(/<li\b[^>]*>/gi, '\n• ');
+    
+    // 5. Strip all remaining HTML tags
+    cleaned = cleaned.replace(/<[^>]+>/g, '');
+
+    // 6. Decode common HTML entities (only AFTER stripping tags!)
+    cleaned = cleaned
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&le;/g, '≤')
+      .replace(/&ge;/g, '≥');
+
+    // 7. Normalize line breaks and spaces
+    return cleaned
+      .replace(/\r\n/g, '\n')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+  },
+
+  /**
+   * Extracts code from Monaco editor elements with strict vertical line order sorting
+   * to prevent line scrambling caused by recycled virtual DOM nodes.
+   */
+  extractCodeFromMonaco(root = document) {
+    const lines = root.querySelectorAll('.monaco-editor .view-lines .view-line');
+    if (!lines || lines.length === 0) return '';
+    const sorted = Array.from(lines).sort((a, b) => {
+      const getTop = (el) => {
+        const style = el.style.top;
+        if (style) return parseFloat(style) || 0;
+        const match = el.getAttribute('style')?.match(/top:\s*([\d.]+)px/);
+        if (match) return parseFloat(match[1]) || 0;
+        return el.getBoundingClientRect().top;
+      };
+      return getTop(a) - getTop(b);
+    });
+    return sorted.map(l => l.textContent || '').join('\n').trim();
   },
 
   /**

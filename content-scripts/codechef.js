@@ -113,6 +113,10 @@
   }
 
   function extractCode() {
+    if (window.AlgoSyncCommon?.extractCodeFromMonaco) {
+      const monacoCode = window.AlgoSyncCommon.extractCodeFromMonaco(document);
+      if (monacoCode && monacoCode.length > 10) return monacoCode;
+    }
     const lines = document.querySelectorAll('.monaco-editor .view-lines .view-line');
     if (lines && lines.length > 0) {
       return Array.from(lines).map(l => l.textContent || '').join('\n');

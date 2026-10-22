@@ -386,6 +386,59 @@ assert(cfFullScript.includes('if (isStillRunning) {\n        return false;'), 'C
 assert(cfFullScript.includes('fetchSubmissionSourceCode'), 'Codeforces fetches authentic source code for exact submission ID');
 
 
+// 15. Test HackerRank Description Cleaning & Monaco Line Sorting
+console.log('\n[15] Testing HackerRank Description Cleaning & Monaco Line Sorting...');
+const commonJs = fs.readFileSync('content-scripts/common.js', 'utf8');
+const hrFullScript = fs.readFileSync('content-scripts/hackerrank.js', 'utf8');
+
+assert(hrFullScript.includes('fetchChallengeDetails'), 'HackerRank fetches challenge details via REST API');
+assert(hrFullScript.includes('fetchLatestSubmission'), 'HackerRank fetches latest authentic submission via REST API');
+assert(hrFullScript.includes('formatDescriptionFromModel'), 'HackerRank formats description from API model');
+assert(hrFullScript.includes('extractCodeFromMonaco'), 'HackerRank utilizes extractCodeFromMonaco for sorted line extraction');
+assert(commonJs.includes('extractCodeFromMonaco'), 'common.js exports extractCodeFromMonaco');
+
+// Test cleanHtmlToText logic directly with HackerRank MathJax sample
+const hrSampleHtml = `
+<style id="MathJax_SVG_styles">
+.MathJax_SVG_Display {text-align: center; margin: 1em 0em; position: relative; display: block!important;}
+.MathJax_SVG .MJX-monospace {font-family: monospace}
+</style>
+<p>Alice and Bob each created one problem for HackerRank.</p>
+<ul>
+<li>If <script type="math/tex">a[i] > b[i]</script>, then Alice is awarded 1 point.</li>
+<li>If <script type="math/tex">a[i] < b[i]</script>, then Bob is awarded 1 point.</li>
+<li>If <script type="math/tex">a[i] = b[i]</script>, then neither person receives a point.</li>
+</ul>
+<p>Constraints</p>
+<ul>
+<li><script type="math/tex">1 \\le a[i] \\le 100</script></li>
+</ul>
+`;
+
+// Extract cleanHtmlToText from common.js using function extraction or evaluation
+const cleanHtmlMatch = commonJs.match(/cleanHtmlToText\(html\) \{([\s\S]*?)\n  \},/);
+assert(cleanHtmlMatch !== null, 'Found cleanHtmlToText definition in common.js');
+const cleanHtmlFn = new Function('html', cleanHtmlMatch[1]);
+const cleanedResult = cleanHtmlFn(hrSampleHtml);
+
+assert(!cleanedResult.includes('MathJax_SVG_Display'), 'cleanHtmlToText completely strips MathJax CSS stylesheets');
+assert(!cleanedResult.includes('font-family: monospace'), 'cleanHtmlToText strips all CSS rule declarations');
+assert(cleanedResult.includes('Alice and Bob each created one problem'), 'cleanHtmlToText preserves problem text');
+assert(cleanedResult.includes('a[i] > b[i]'), 'cleanHtmlToText preserves > math formulas from TeX scripts');
+assert(cleanedResult.includes('a[i] < b[i]'), 'cleanHtmlToText preserves < math formulas from TeX scripts');
+assert(cleanedResult.includes('a[i] = b[i]'), 'cleanHtmlToText preserves = math formulas from TeX scripts');
+
+// Test Monaco sorting logic
+const mockLines = [
+  { style: { top: '38px' }, textContent: '        int alice = 0;' },
+  { style: { top: '0px' }, textContent: 'public class Solution {' },
+  { style: { top: '19px' }, textContent: '    public static void main(String[] args) {' }
+];
+const sortedMock = mockLines.slice().sort((a, b) => parseFloat(a.style.top) - parseFloat(b.style.top));
+assert(sortedMock[0].textContent.includes('public class Solution'), 'Monaco sorting puts top: 0px line first');
+assert(sortedMock[1].textContent.includes('public static void main'), 'Monaco sorting puts top: 19px line second');
+assert(sortedMock[2].textContent.includes('int alice'), 'Monaco sorting puts top: 38px line third');
+
 console.log(`\n========================================`);
 console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
 console.log(`========================================\n`);

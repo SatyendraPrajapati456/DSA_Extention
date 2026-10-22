@@ -202,11 +202,10 @@
   }
 
   function extractCode() {
-    // 1. Monaco editor (Modern GFG Practice UI)
-    const monacoLines = document.querySelectorAll('.monaco-editor .view-lines .view-line');
-    if (monacoLines && monacoLines.length > 0) {
-      const code = Array.from(monacoLines).map(l => l.textContent || '').join('\n').trim();
-      if (code && code.length > 10) return code;
+    // 1. Monaco editor (Modern GFG Practice UI) - sorted by vertical offset
+    if (window.AlgoSyncCommon?.extractCodeFromMonaco) {
+      const monacoCode = window.AlgoSyncCommon.extractCodeFromMonaco(document);
+      if (monacoCode && monacoCode.length > 10) return monacoCode;
     }
 
     // 2. Ace editor lines (Classic GFG UI)
