@@ -370,6 +370,22 @@ assert(optionsJs.includes('btnRefreshHistory?.addEventListener'), 'options.js at
 assert(optionsJs.includes('await loadHistory()'), 'options.js reloads history data asynchronously');
 assert(!optionsJs.includes('btnRefreshHistory?.addEventListener(\'click\', () => location.reload()'), 'options.js does not reload the entire page');
 
+// 14. Test Codeforces Cross-Page Persistence & Status Table Parsing
+console.log('\n[14] Testing Codeforces Cross-Page Persistence & Status Table Support...');
+const cfFullScript = fs.readFileSync('content-scripts/codeforces.js', 'utf8');
+const manifestObj = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+const cfManifest = manifestObj.content_scripts.find(cs => cs.js.includes('content-scripts/codeforces.js'));
+
+assert(cfManifest.matches.includes('*://*.codeforces.com/*'), 'Manifest matches all Codeforces subdomains and routes');
+assert(cfFullScript.includes('sessionStorage.setItem(CF_PENDING_KEY'), 'Codeforces persists submission intent to sessionStorage before page navigation');
+assert(cfFullScript.includes('sessionStorage.getItem(CF_PENDING_KEY'), 'Codeforces restores submission intent from sessionStorage after page redirect');
+assert(cfFullScript.includes('table.status-frame-datatable'), 'Codeforces inspects status table for async verdict resolution');
+assert(cfFullScript.includes('startPollingForVerdict'), 'Codeforces uses active polling for async verdict evaluation');
+assert(cfFullScript.includes('lastProcessedSubmissionId'), 'Codeforces tracks last processed submission ID to prevent re-syncing');
+assert(cfFullScript.includes('if (isStillRunning) {\n        return false;'), 'Codeforces waits if newest submission is still running and never falls through to older rows');
+assert(cfFullScript.includes('fetchSubmissionSourceCode'), 'Codeforces fetches authentic source code for exact submission ID');
+
+
 console.log(`\n========================================`);
 console.log(`TEST RESULTS: ${passed} PASSED, ${failed} FAILED`);
 console.log(`========================================\n`);

@@ -67,8 +67,8 @@
     },
     {
       "matches": [
-        "*://*.codeforces.com/problemset/*",
-        "*://*.codeforces.com/contest/*"
+        "*://*.codeforces.com/*",
+        "*://codeforces.com/*"
       ],
       "js": [
         "content-scripts/common.js",
