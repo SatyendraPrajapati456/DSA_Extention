@@ -455,4 +455,5 @@ Contributions, bug reports, and feature requests are welcome!
 **Built with precision and speed for competitive programmers and software engineers worldwide.**
 
 
-[![AlgoSync AI YouTube Thumbnail](https://chatgpt.com/s/m_6ada68bcf1388191a5f27748598c596e)](https://youtu.be/F95_rov8x_I)
+[![AlgoSync AI YouTube Thumbnail](<img width="1672" height="941" alt="AlgoSync AI_ Automated DSA Portfolio" src="https://github.com/user-attachments/assets/36d63c73-26db-4aa5-adcc-9f32efededaa" />
+)](https://youtu.be/F95_rov8x_I)
